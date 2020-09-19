@@ -1,0 +1,84 @@
+mod config;
+mod desktop;
+mod event;
+mod layout;
+mod screen;
+mod windows;
+mod wm;
+mod workspace;
+mod xconn;
+
+use wm::WM;
+use config::KEYBINDS;
+
+use std::env;
+use std::process;
+
+fn print_version() {
+    println!(
+        "{}-{}.{}.{}",
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION_MAJOR"),
+        env!("CARGO_PKG_VERSION_MINOR"),
+        env!("CARGO_PKG_VERSION_PATCH"),
+    )
+}
+
+fn print_usage() {
+    println!(
+        "Usage: {} [-h|--help] [-v|--version] [-y|--why]",
+        env!("CARGO_PKG_NAME"),
+    )
+}
+
+fn main() {
+    // Get arguments
+    let args: Vec<String> = env::args().collect();
+
+    // If arguments provided, either show version or help
+    if args.len() >= 2 {
+        match args.get(1).unwrap().as_str() {
+            "-v"|"--version" => {
+                print_version();
+                process::exit(0);
+            },
+
+            "-h"|"--help" => {
+                print_usage();
+                process::exit(0);
+            },
+
+            "-y"|"--why" => {
+                println!("Captain Kirk is climbing a mountain, why is he climbing a mountain?");
+                process::exit(69);
+            },
+
+            _ => {
+                print_usage();
+                process::exit(1);
+            },
+        }
+    }
+
+    // Initialize logging
+    outlog::init_with_default().expect("Failed to initialize logging");
+
+    // Register OS signals
+    unsafe { signal_hook::register(signal_hook::SIGINT|signal_hook::SIGTERM, || { panic!("OS Signal received!") }).expect("Failed to register OS signal receiver"); }
+    outlog::debug!("Registered OS signal hook");
+
+    // Try connect to xserver
+    let (conn, screen_idx) = xcb::Connection::connect(None).expect("Failed to connect to xserver");
+    outlog::info!("Connected to X server");
+
+    // Get just masks and keys from config
+    let keys = KEYBINDS.iter().map(
+        |(mask, key, _)| { return (*mask, *key); }
+    ).collect();
+
+    // Create new window manager object
+    let mut wm = WM::new(&conn, screen_idx, &keys);
+
+    // Run window manager!
+    wm.run();
+}
