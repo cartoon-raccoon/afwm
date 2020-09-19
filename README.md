@@ -6,7 +6,7 @@ If you're wondering why any of this then look -- `afwm [-y|--why]`
 
 LOC count (according to `loc` tool): `950`
 
-I am Rust noob. I started this a few days ago (heavily referencing
+I am Rust noob. I started this a few days ago (heavily inspired by
 Lanta at first). I have never touched X before this. Pls go easy on my
 fragile existence.
 
