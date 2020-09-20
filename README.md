@@ -12,12 +12,13 @@ fragile existence.
 
 # Todos
 
+- figure out `EVENT_MASK_ENTER_WINDOW` for mapped windows (fucks keyboard input
+  if we enable this)
+
 - refactor much code and contain repeated logic in Desktop possibly?
 
 - tiling mode
   - window gaps in tiling mode
-
-- fix focusing issues (only gain focus when MOD+click on window again)
 
 - fix full screen windows breaking EVERYTHING
 
