@@ -12,7 +12,7 @@ pub fn activate(ws: &mut Workspace, conn: &XConn, screen: &Screen) {
     // Map the windows in the workspace in reverse order and grab their geometry
     for window in ws.windows.iter_rev_mut() {
         conn.window_map(window.id);
-        window.get_geometry(conn)
+        window.update_geometry(conn)
     }
 
     // Tell X to focus our focused window
@@ -30,15 +30,15 @@ pub fn window_add(ws: &mut Workspace, conn: &XConn, screen: &Screen, window_id: 
     // Internally add
     ws.windows.add(Window::from(window_id));
 
-    // Ensure the window spawns at the visible screen start (not ontop of bars etc)
-    conn.window_move(window_id, screen.x as u32 + 16, screen.y as u32 + 9);
+    // Ensure new window within screen bounds
+    conn.window_move(window_id, screen.x as u32, screen.y as u32);
 
     // Tell X to map and focus the window
     conn.window_map(window_id);
     conn.window_focus(window_id);
 
     // Update the window geometry
-    ws.windows.focused_mut().unwrap().get_geometry(conn);
+    ws.windows.focused_mut().unwrap().update_geometry(conn);
 }
 
 pub fn window_del(ws: &mut Workspace, conn: &XConn, screen: &Screen, window_id: xcb::Window) {

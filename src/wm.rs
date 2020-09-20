@@ -44,8 +44,8 @@ impl<'a> WM<'a> {
             running: true,
         };
 
-        // Perform initial view update
-        new.screen.update(&new.conn);
+        // Perform initial screen geometry fetch
+        new.screen.update_geometry(&new.conn);
 
         // Return new self!
         return new;
@@ -78,7 +78,7 @@ impl<'a> WM<'a> {
                         ws.window_del(&self.conn, &self.screen, window_id);
 
                         // View may have changed
-                        self.screen.update(&self.conn);
+                        self.screen.update_geometry(&self.conn);
                     }
                 },
 
@@ -88,7 +88,7 @@ impl<'a> WM<'a> {
                         ws.window_del(&self.conn, &self.screen, window_id);
 
                         // View may have changed
-                        self.screen.update(&self.conn);
+                        self.screen.update_geometry(&self.conn);
                     }
                 },
 
@@ -124,12 +124,12 @@ impl<'a> WM<'a> {
                     match self.mouse_mode {
                         MouseMode::Move => {
                             // Move currently focused window
-                            focused.move_(&self.conn, dx, dy);
+                            focused.do_move(&self.conn, &self.screen, dx, dy);
                         },
 
                         MouseMode::Resize => {
                             // Resize currently focused window
-                            focused.resize(&self.conn, dx, dy);
+                            focused.do_resize(&self.conn, &self.screen, dx, dy);
                         },
 
                         // Shoudn't reach here

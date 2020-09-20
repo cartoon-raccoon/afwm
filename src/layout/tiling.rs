@@ -9,9 +9,10 @@ pub fn activate(ws: &mut Workspace, conn: &XConn, screen: &Screen) {
         return;
     }
 
-    // Map the windows in the workspace in reverse order
-    for window in ws.windows.iter_rev() {
+    // Map the windows in the workspace in reverse order and grab their geometry
+    for window in ws.windows.iter_rev_mut() {
         conn.window_map(window.id);
+        window.update_geometry(conn)
     }
 
     // Tell X to focus our focused window
@@ -29,9 +30,15 @@ pub fn window_add(ws: &mut Workspace, conn: &XConn, screen: &Screen, window_id: 
     // Internally add
     ws.windows.add(Window::from(window_id));
 
+    // Ensure the window spawns at the visible screen start (not ontop of bars etc)
+    conn.window_move(window_id, screen.x as u32 + 16, screen.y as u32 + 9);
+
     // Tell X to map and focus the window
     conn.window_map(window_id);
     conn.window_focus(window_id);
+
+    // Update the window geometry
+    ws.windows.focused_mut().unwrap().update_geometry(conn);
 }
 
 pub fn window_del(ws: &mut Workspace, conn: &XConn, screen: &Screen, window_id: xcb::Window) {
@@ -42,13 +49,16 @@ pub fn window_del(ws: &mut Workspace, conn: &XConn, screen: &Screen, window_id: 
 
         // Tell X to unmap the window
         conn.window_unmap(window_id);
+
+        // If we just deleted the previously focused, focus the next index 0
+        if idx == 0 { window_focus_idx(ws, conn, screen, 0); }
     }
 }
 
 pub fn window_del_focused(ws: &mut Workspace, conn: &XConn, screen: &Screen) -> Option<xcb::Window> {
     // Delete focused window (if there!)
     if let Some(focused) = ws.windows.focused() {
-        // Get ownership of focused Window
+        // Take ownership of focused window
         let focused = *focused;
 
         // Internally, remove the focused window
@@ -56,6 +66,9 @@ pub fn window_del_focused(ws: &mut Workspace, conn: &XConn, screen: &Screen) -> 
 
         // Tell X to unmap the window
         conn.window_unmap(focused.id);
+
+        // Focus the next
+        window_focus_idx(ws, conn, screen, 0);
 
         // Return the old focused window
         return Some(focused.id);
@@ -75,6 +88,9 @@ pub fn window_focus(ws: &mut Workspace, conn: &XConn, screen: &Screen, window_id
         ws.windows.remove(idx);
         ws.windows.add(window);
 
+        // Set window ontop
+        conn.window_ontop(window_id);
+
         // Tell X to focus the window
         conn.window_focus(window_id);
     }
@@ -90,10 +106,14 @@ pub fn window_focus_idx(ws: &mut Workspace, conn: &XConn, screen: &Screen, idx: 
         ws.windows.remove(idx);
         ws.windows.add(window);
 
+        // Set window ontop
+        conn.window_ontop(window.id);
+
         // Tell X to focus the window
         conn.window_focus(window.id);
     }
 }
+
 
 pub fn perform_layout(ws: &mut Workspace, conn: &XConn, screen: &Screen) {
     // do nothing

@@ -1,3 +1,4 @@
+use crate::screen::Screen;
 use crate::xconn::XConn;
 
 use std::collections::VecDeque;
@@ -5,8 +6,10 @@ use std::collections::VecDeque;
 #[derive(Copy, Clone)]
 pub struct Window {
     pub id: xcb::Window,
+
     pub x: i32,
     pub y: i32,
+
     pub width: i32,
     pub height: i32,
 }
@@ -21,8 +24,10 @@ impl From<xcb::Window> for Window {
     fn from(window_id: xcb::Window) -> Self {
         Self {
             id: window_id,
+
             x: 0,
             y: 0,
+
             width: 0,
             height: 0,
         }
@@ -35,7 +40,7 @@ impl Window {
                (py > self.y) && (py < self.y+self.height);
     }
 
-    pub fn get_geometry(&mut self, conn: &XConn) {
+    pub fn update_geometry(&mut self, conn: &XConn) {
         // Get and set current window geometry
         let (x, y, w, h) = conn.get_geometry(self.id);
         self.x = x;
@@ -44,17 +49,27 @@ impl Window {
         self.height = h;
     }
 
-    pub fn resize(&mut self, conn: &XConn, dx: i32, dy: i32) {
+    pub fn do_resize(&mut self, conn: &XConn, screen: &Screen, dx: i32, dy: i32) {
         // Iterate current size values
         self.width += dx;
         self.height += dy;
+
+        // If at screen max, scale it back
+        let end_x = screen.x + screen.width;
+        if self.x + self.width > end_x {
+            self.width = end_x - self.x;
+        }
+        let end_y = screen.y + screen.height;
+        if self.y + self.height > end_y {
+            self.height = end_y - self.y;
+        }
 
         // Send new window configuration to X
         conn.window_resize(self.id, self.width as u32, self.height as u32);
     }
 
     // we're using this name because `move` is reseeeeerved, bleh
-    pub fn move_(&mut self, conn: &XConn, dx: i32, dy: i32) {
+    pub fn do_move(&mut self, conn: &XConn, screen: &Screen, dx: i32, dy: i32) {
         // Iterate current position values
         self.x += dx;
         self.y += dy;

@@ -119,6 +119,16 @@ impl<'a> XConn<'a> {
         xcb::configure_window(self.conn, window_id, &[(xcb::CONFIG_WINDOW_WIDTH as u16, width), (xcb::CONFIG_WINDOW_HEIGHT as u16, height)]);
     }
 
+    pub fn window_configure(&self, window_id: xcb::Window, x: u32, y: u32, width: u32, height: u32) {
+        outlog::debug!("Configuring window: {}", window_id);
+        xcb::configure_window(self.conn, window_id, &[
+            (xcb::CONFIG_WINDOW_X as u16, x),
+            (xcb::CONFIG_WINDOW_Y as u16, y),
+            (xcb::CONFIG_WINDOW_WIDTH as u16, width),
+            (xcb::CONFIG_WINDOW_HEIGHT as u16, height),
+        ]);
+    }
+
     pub fn window_enable_tracking(&self, window: xcb::Window) {
         outlog::debug!("Enabling window tracking on: {}", window);
         xcb::change_window_attributes(self.conn, window, &[
@@ -198,9 +208,7 @@ impl<'a> XConn<'a> {
 
                     // All others generate necessary Event and return
                     xcb::MAP_REQUEST    => self.on_map_request(xcb::cast_event(&event)),
-
                     xcb::UNMAP_NOTIFY   => self.on_unmap_notify(xcb::cast_event(&event)),
-
                     xcb::DESTROY_NOTIFY => self.on_destroy_notify(xcb::cast_event(&event)),
                     xcb::ENTER_NOTIFY   => self.on_enter_notify(xcb::cast_event(&event)),
                     xcb::MOTION_NOTIFY  => self.on_motion_notify(xcb::cast_event(&event)),
