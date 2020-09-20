@@ -3,6 +3,14 @@ use crate::event::{Event, KeyEvent, MouseButton};
 
 use xcb_util::keysyms::KeySymbols;
 
+const ROOT_EVENT_MASK: u32 = xcb::EVENT_MASK_STRUCTURE_NOTIFY|
+                             /*xcb::EVENT_MASK_PROPERTY_CHANGE|*/
+                             xcb::EVENT_MASK_SUBSTRUCTURE_REDIRECT;
+
+const CHILD_EVENT_MASK: u32 = xcb::EVENT_MASK_ENTER_WINDOW|
+                              /*xcb::EVENT_MASK_PROPERTY_CHANGE|*/
+                              xcb::EVENT_MASK_STRUCTURE_NOTIFY;
+
 pub struct XConn<'a> {
     // X server connection
     pub conn: &'a xcb::Connection,
@@ -26,37 +34,37 @@ impl<'a> XConn<'a> {
 
         // Register root window to receive events
         xcb::change_window_attributes_checked(conn, root, &[
-            (xcb::CW_EVENT_MASK, xcb::EVENT_MASK_STRUCTURE_NOTIFY|xcb::EVENT_MASK_SUBSTRUCTURE_NOTIFY|xcb::EVENT_MASK_SUBSTRUCTURE_REDIRECT),
+            (xcb::CW_EVENT_MASK, ROOT_EVENT_MASK),
         ]).request_check().expect("Registering with X server as window manager");
         outlog::debug!("Registered as window manager");
 
         // New KeySymbols object for keysym lookup
         let key_syms = KeySymbols::new(conn);
 
-        // Register mouse events to grab
+        // Register click events to grab
         xcb::grab_button(
             conn,
-            false,                                                                // owner events, (a.k. don't pass on events to root window)
-            root,                                                                 // window id
+            false,                                                                     // owner events, (a.k. don't pass on events to root window)
+            root,                                                                      // window id
             xcb::EVENT_MASK_BUTTON_PRESS as u16|xcb::EVENT_MASK_BUTTON_RELEASE as u16, // button event mask
-            xcb::GRAB_MODE_ASYNC as u8,                                           // pointer mode
-            xcb::GRAB_MODE_ASYNC as u8,                                           // keyboard mode
-            root,                                                                 // confine pointer to window (or no confine)
-            xcb::NONE,                                                            // cursor to use
-            xcb::BUTTON_INDEX_1 as u8,                                            // button to grab (left click)
-            MODKEY as u16,                                                        // Modifiers to grab mouse with
+            xcb::GRAB_MODE_ASYNC as u8,                                                // pointer mode
+            xcb::GRAB_MODE_ASYNC as u8,                                                // keyboard mode
+            root,                                                                      // confine pointer to window (or no confine)
+            xcb::NONE,                                                                 // cursor to use
+            xcb::BUTTON_INDEX_1 as u8,                                                 // button to grab (left click)
+            MODKEY as u16,                                                             // Modifiers to grab mouse with
         );
         xcb::grab_button(
             conn,
-            false,                                                                       // owner events, (a.k. don't pass on events to root window)
-            root,                                                                        // window id
+            false,                                                                     // owner events, (a.k. don't pass on events to root window)
+            root,                                                                      // window id
             xcb::EVENT_MASK_BUTTON_PRESS as u16|xcb::EVENT_MASK_BUTTON_RELEASE as u16, // button event mask
-            xcb::GRAB_MODE_ASYNC as u8,                                           // pointer mode
-            xcb::GRAB_MODE_ASYNC as u8,                                           // keyboard mode
-            root,                                                                 // confine pointer to window (or no confine)
-            xcb::NONE,                                                            // cursor to use
-            xcb::BUTTON_INDEX_3 as u8,                                            // button to grab (right click)
-            MODKEY as u16,                                                        // Modifiers to grab mouse with
+            xcb::GRAB_MODE_ASYNC as u8,                                                // pointer mode
+            xcb::GRAB_MODE_ASYNC as u8,                                                // keyboard mode
+            root,                                                                      // confine pointer to window (or no confine)
+            xcb::NONE,                                                                 // cursor to use
+            xcb::BUTTON_INDEX_3 as u8,                                                 // button to grab (right click)
+            MODKEY as u16,                                                             // Modifiers to grab mouse with
         );
 
         // Register keys events to grab
@@ -92,6 +100,11 @@ impl<'a> XConn<'a> {
             root:       root,
             key_syms:   key_syms,
         }
+    }
+
+    pub fn query_tree(&self) -> Vec<xcb::Window> {
+        let reply = xcb::query_tree(&self.conn, self.root).get_reply().expect("Querying window tree");
+        return reply.children().iter().map(|w| { *w }).collect();
     }
 
     pub fn window_map(&self, window: xcb::Window) {
@@ -159,7 +172,7 @@ impl<'a> XConn<'a> {
             self.conn,
             false,
             self.root,
-            (xcb::EVENT_MASK_BUTTON_RELEASE|xcb::EVENT_MASK_BUTTON_MOTION|xcb::EVENT_MASK_POINTER_MOTION_HINT) as u16,
+            (xcb::EVENT_MASK_BUTTON_RELEASE|xcb::EVENT_MASK_BUTTON_MOTION) as u16,
             xcb::GRAB_MODE_ASYNC as u8,
             xcb::GRAB_MODE_ASYNC as u8,
             self.root,
@@ -173,15 +186,20 @@ impl<'a> XConn<'a> {
         xcb::ungrab_pointer(self.conn, xcb::CURRENT_TIME);
     }
 
-    pub fn get_geometry(&self, window_id: xcb::Window) -> (i32, i32, i32, i32) {
+    pub fn get_geometry(&self, window_id: xcb::Window) -> Option<(i32, i32, i32, i32)> {
         outlog::debug!("Getting window geometry: {}", window_id);
-        let dimens = xcb::get_geometry(self.conn, window_id).get_reply().expect("Getting root window geometry");
-        return (dimens.x() as i32, dimens.y() as i32, dimens.width() as i32, dimens.height() as i32);
+        match xcb::get_geometry(self.conn, window_id).get_reply() {
+            Ok(dimens) => return Some((dimens.x() as i32, dimens.y() as i32, dimens.width() as i32, dimens.height() as i32)),
+            Err(_) => {
+                outlog::warn!("Failed getting window geometry for {}. Was window destroy and not yet unmapped?", window_id);
+                return None;
+            },
+        }
     }
 
     pub fn get_pointer(&self, window_id: xcb::Window) -> (i32, i32, xcb::Window) {
         outlog::debug!("Querying window pointer location: {}", window_id);
-        let pointer = xcb::query_pointer(self.conn, window_id).get_reply().expect("Querying root pointer location");
+        let pointer = xcb::query_pointer(self.conn, window_id).get_reply().expect("Querying window pointer location");
         return (pointer.root_x() as i32, pointer.root_y() as i32, pointer.child())
     }
 
@@ -190,7 +208,7 @@ impl<'a> XConn<'a> {
             // Flush connection to ensure clean
             self.conn.flush();
 
-            // Check for queued
+            // Check for queued, else wait for next
             let event = if let Some(ev) = self.conn.poll_for_queued_event() {
                 ev
             } else {
@@ -203,17 +221,14 @@ impl<'a> XConn<'a> {
             // Set opt 'unsafely' as this is what xcb::cast_event requires
             unsafe {
                 opt = match event.response_type() {
-                    // Configure request handled internally (always none)
                     xcb::CONFIGURE_REQUEST => self.on_configure_request(xcb::cast_event(&event)),
-
-                    // All others generate necessary Event and return
-                    xcb::MAP_REQUEST    => self.on_map_request(xcb::cast_event(&event)),
-                    xcb::UNMAP_NOTIFY   => self.on_unmap_notify(xcb::cast_event(&event)),
+                    xcb::MAP_REQUEST => self.on_map_request(xcb::cast_event(&event)),
+                    xcb::UNMAP_NOTIFY => self.on_unmap_notify(xcb::cast_event(&event)),
                     xcb::DESTROY_NOTIFY => self.on_destroy_notify(xcb::cast_event(&event)),
-                    xcb::ENTER_NOTIFY   => self.on_enter_notify(xcb::cast_event(&event)),
-                    xcb::MOTION_NOTIFY  => self.on_motion_notify(xcb::cast_event(&event)),
-                    xcb::KEY_PRESS      => self.on_key_press(xcb::cast_event(&event)),
-                    xcb::BUTTON_PRESS   => self.on_button_press(xcb::cast_event(&event)),
+                    xcb::ENTER_NOTIFY => self.on_enter_notify(xcb::cast_event(&event)),
+                    xcb::MOTION_NOTIFY => self.on_motion_notify(xcb::cast_event(&event)),
+                    xcb::KEY_PRESS => self.on_key_press(xcb::cast_event(&event)),
+                    xcb::BUTTON_PRESS => self.on_button_press(xcb::cast_event(&event)),
                     xcb::BUTTON_RELEASE => self.on_button_release(xcb::cast_event(&event)),
 
                     // Unhandled event type
@@ -259,11 +274,6 @@ impl<'a> XConn<'a> {
             values.push((xcb::CONFIG_WINDOW_SIBLING as u16, event.sibling() as u32));
         }
 
-        // Has CONFIG_WINDOW_BORDER_WIDTH mask, add to values
-        //if xcb::CONFIG_WINDOW_BORDER_WIDTH as u16 & event.value_mask() != 0 {
-        //    values.push((xcb::CONFIG_WINDOW_BORDER_WIDTH as u16, event.border_width() as u32));
-        //}
-
         // Configure window using filtered values
         xcb::configure_window(&self.conn, event.window(), &values);
 
@@ -280,11 +290,6 @@ impl<'a> XConn<'a> {
     }
 
     fn on_unmap_notify(&self, event: &xcb::UnmapNotifyEvent) -> Option<Event> {
-        // Ignore those from our root SUBSTRUCTURE_NOTIFY mask
-        if event.event() == self.root {
-            return None;
-        }
-
         // Log this!
         outlog::debug!("on_unmap_notify: {}", event.window());
 
@@ -302,13 +307,18 @@ impl<'a> XConn<'a> {
 
     fn on_enter_notify(&self, event: &xcb::EnterNotifyEvent) -> Option<Event> {
         // Log this!
-        outlog::debug!("on_enter_notify: {}", event.event());
+        outlog::debug!("on_enter_notify: {}", event.child());
 
         // Return new EnterNotify Event
-        return Some(Event::EnterNotify(event.event()));
+        return Some(Event::EnterNotify(event.child()));
     }
 
     fn on_motion_notify(&self, event: &xcb::MotionNotifyEvent) -> Option<Event> {
+        // If button press happens not in sub-window to root, we don't care
+        if event.child() == xcb::WINDOW_NONE {
+            return None;
+        }
+
         // Log this!
         outlog::debug!("on_motion_notify: {}", event.child());
 
@@ -330,10 +340,15 @@ impl<'a> XConn<'a> {
         outlog::debug!("on_key_press: {} {}", key_ev.mask, key_ev.key);
 
         // Return KeyPress Event
-        return Some(Event::KeyPress(key_ev));
+        return Some(Event::KeyPress((key_ev, event.child())));
     }
 
     fn on_button_press(&self, event: &xcb::ButtonPressEvent) -> Option<Event> {
+        // If button press not in sub-window to root, we don't care
+        if event.child() == xcb::WINDOW_NONE {
+            return None;
+        }
+
         // Get MouseButton for event
         let tuple = match event.detail() as u32 {
             // Left click
@@ -349,8 +364,8 @@ impl<'a> XConn<'a> {
             }
 
             // Invalid button press, return nothing
-            b => {
-                outlog::debug!("on_button_press: unhandled button {}", b);
+            _ => {
+                outlog::debug!("on_button_press: unhandled button");
                 return None;
             },
         };
@@ -363,6 +378,11 @@ impl<'a> XConn<'a> {
     }
 
     fn on_button_release(&self, event: &xcb::ButtonReleaseEvent) -> Option<Event> {
+        // If button press not in sub-window to root, we don't care
+        if event.child() == xcb::WINDOW_NONE {
+            return None;
+        }
+
         // Get MouseButton for event
         let ev = match event.detail() as u32 {
             // Left click

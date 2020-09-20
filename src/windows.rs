@@ -35,18 +35,14 @@ impl From<xcb::Window> for Window {
 }
 
 impl Window {
-    pub fn cursor_is_within(&self, px: i32, py: i32) -> bool {
-        return (px > self.x) && (px < self.x+self.width) &&
-               (py > self.y) && (py < self.y+self.height);
-    }
-
     pub fn update_geometry(&mut self, conn: &XConn) {
-        // Get and set current window geometry
-        let (x, y, w, h) = conn.get_geometry(self.id);
-        self.x = x;
-        self.y = y;
-        self.width = w;
-        self.height = h;
+        // Get and set current window geometry (if we can!)
+        if let Some((x, y, w, h)) = conn.get_geometry(self.id) {
+            self.x = x;
+            self.y = y;
+            self.width = w;
+            self.height = h;
+        }
     }
 
     pub fn do_resize(&mut self, conn: &XConn, screen: &Screen, dx: i32, dy: i32) {

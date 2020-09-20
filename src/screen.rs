@@ -28,7 +28,7 @@ impl Default for Screen {
 impl Screen {
     pub fn update_geometry(&mut self, conn: &XConn) {
         // Get new window geometry
-        let (x, y, w, h) = conn.get_geometry(conn.root);
+        let (x, y, w, h) = conn.get_geometry(conn.root).expect("Failed getting root window geometry");
 
         // Set x, y start
         self.x = x;

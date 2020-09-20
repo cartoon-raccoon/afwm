@@ -4,7 +4,7 @@ pub enum Event {
     DestroyNotify(xcb::Window),
     EnterNotify(xcb::Window),
     MotionNotify,
-    KeyPress(KeyEvent),
+    KeyPress((KeyEvent, xcb::Window)),
     ButtonPress((MouseButton, xcb::Window)),
     ButtonRelease(MouseButton),
 }

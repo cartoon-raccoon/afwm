@@ -34,7 +34,7 @@ pub const KEYBINDS: &[(xcb::ModMask, xcb::Keysym, fn(&mut WM))] = &[
     (0, keysym::XF86XK_AudioMicMute,     |_|{ run(&["amixer", "sset", "Capture", "1+", "toggle"]) }),
 
     // Launch terminal
-    (MODKEY|xproto::MOD_MASK_SHIFT, keysym::XK_Return, |_|{ run(&["alacritty"]) }),
+    (MODKEY|xproto::MOD_MASK_SHIFT, keysym::XK_Return, |_|{ run(&["urxvt-launch"]) }),
 
     // Close focused window
     (MODKEY|xproto::MOD_MASK_SHIFT, keysym::XK_c, |wm|{ wm.desktop.current_mut().window_close_focused(&wm.conn) }),

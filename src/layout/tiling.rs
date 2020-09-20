@@ -114,7 +114,6 @@ pub fn window_focus_idx(ws: &mut Workspace, conn: &XConn, screen: &Screen, idx: 
     }
 }
 
-
 pub fn perform_layout(ws: &mut Workspace, conn: &XConn, screen: &Screen) {
     // do nothing
 }

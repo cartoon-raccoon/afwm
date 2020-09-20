@@ -30,9 +30,6 @@ pub fn window_add(ws: &mut Workspace, conn: &XConn, screen: &Screen, window_id: 
     // Internally add
     ws.windows.add(Window::from(window_id));
 
-    // Ensure new window within screen bounds
-    conn.window_move(window_id, screen.x as u32, screen.y as u32);
-
     // Tell X to map and focus the window
     conn.window_map(window_id);
     conn.window_focus(window_id);

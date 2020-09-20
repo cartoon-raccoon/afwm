@@ -78,14 +78,14 @@ impl Workspace {
         self.active = false;
     }
 
-    pub fn window_add(&mut self, conn: &XConn, screen: &Screen, window: xcb::Window) {
-        outlog::debug!("Adding window to workspace");
-       (self._window_add)(self, conn, screen, window);
+    pub fn window_add(&mut self, conn: &XConn, screen: &Screen, window_id: xcb::Window) {
+        outlog::debug!("Adding window to workspace: {}", window_id);
+       (self._window_add)(self, conn, screen, window_id);
     }
 
-    pub fn window_del(&mut self, conn: &XConn, screen: &Screen, window: xcb::Window) {
-        outlog::debug!("Deleting window from workspace");
-        (self._window_del)(self, conn, screen, window);
+    pub fn window_del(&mut self, conn: &XConn, screen: &Screen, window_id: xcb::Window) {
+        outlog::debug!("Deleting window from workspace: {}", window_id);
+        (self._window_del)(self, conn, screen, window_id);
     }
 
     pub fn window_del_focused(&mut self, conn: &XConn, screen: &Screen) -> Option<xcb::Window> {
@@ -93,13 +93,13 @@ impl Workspace {
         return (self._window_del_focused)(self, conn, screen);
     }
 
-    pub fn window_focus(&mut self, conn: &XConn, screen: &Screen, window: xcb::Window) {
-        outlog::debug!("Focusing window in workspace");
-        (self._window_focus)(self, conn, screen, window);
+    pub fn window_focus(&mut self, conn: &XConn, screen: &Screen, window_id: xcb::Window) {
+        outlog::debug!("Focusing window in workspace: {}", window_id);
+        (self._window_focus)(self, conn, screen, window_id);
     }
 
     pub fn window_focus_idx(&mut self, conn: &XConn, screen: &Screen, idx: usize) {
-        outlog::debug!("Focusing window at index in workspace");
+        outlog::debug!("Focusing window at index in workspace: {}", idx);
         (self._window_focus_idx)(self, conn, screen, idx);
     }
 

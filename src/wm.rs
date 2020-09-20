@@ -93,13 +93,13 @@ impl<'a> WM<'a> {
                 },
 
                 Event::EnterNotify(window_id) => {
-                    // Focus this window
-                    self.desktop.current_mut().window_focus(&self.conn, &self.screen, window_id);
+                    // Focus this windo
+                    self.conn.window_focus(window_id);
                 },
 
                 Event::MotionNotify => {
-                    // If in ground state, do nothing
-                    if self.mouse_mode == MouseMode::Ground {
+                    // If no tracked windows, nothing to do
+                    if self.desktop.current().windows.is_empty() {
                         continue;
                     }
 
@@ -114,43 +114,30 @@ impl<'a> WM<'a> {
                     self.last_mouse_x = px;
                     self.last_mouse_y = py;
 
-                    // Get focuseCd window, check cursor within
-                    let focused = self.desktop.current_mut().windows.focused_mut().unwrap();
-                    if !focused.cursor_is_within(px, py) {
-                        continue;
-                    }
-
                     // React depending on current MouseMode
                     match self.mouse_mode {
                         MouseMode::Move => {
                             // Move currently focused window
-                            focused.do_move(&self.conn, &self.screen, dx, dy);
+                            self.desktop.current_mut().windows.focused_mut().unwrap().do_move(&self.conn, &self.screen, dx, dy);
                         },
 
                         MouseMode::Resize => {
                             // Resize currently focused window
-                            focused.do_resize(&self.conn, &self.screen, dx, dy);
+                            self.desktop.current_mut().windows.focused_mut().unwrap().do_resize(&self.conn, &self.screen, dx, dy);
                         },
 
-                        // Shoudn't reach here
-                        _ => { panic!("Ground state") },
+                        MouseMode::Ground => panic!("MouseMode::Ground state registered in MotionNotify"),
                     }
                 },
 
-                Event::KeyPress(key_ev) => {
+                Event::KeyPress((key_ev, window_id)) => {
                     // Try get function for keybind
                     for (mask, key, keyfn) in KEYBINDS {
                         if *mask == key_ev.mask &&
                            *key == key_ev.key {
-                            // Before executing ensure we're focused on correct window
-                            let (_, _, window_id) = self.conn.get_pointer(self.conn.root);
-
-                            // Get current workspace
-                            let ws = self.desktop.current_mut();
-
                             // If window id isn't the focused window id, refocus
-                            if !ws.windows.is_focused(window_id) {
-                                ws.window_focus(&self.conn, &self.screen, window_id);
+                            if !self.desktop.current_mut().windows.is_focused(window_id) {
+                                self.desktop.current_mut().window_focus(&self.conn, &self.screen, window_id);
                             }
 
                             // Execute! And return
@@ -161,20 +148,20 @@ impl<'a> WM<'a> {
                 },
 
                 Event::ButtonPress((but, window_id)) => {
-                    // If empty window_id, button press was on root
-                    if window_id == 0 {
+                    // If no windows, nothing to do
+                    if self.desktop.current().windows.is_empty() {
                         continue;
-                    }
-
-                    // If window id different to focused, focus this one
-                    if window_id != self.desktop.current().windows.focused().unwrap().id {
-                        self.desktop.current_mut().window_focus(&self.conn, &self.screen, window_id);
                     }
 
                     // Get current pointer position
                     let (px, py, _) = self.conn.get_pointer(self.conn.root);
                     self.last_mouse_x = px;
                     self.last_mouse_y = py;
+
+                    // If window id different to focused, focus this one
+                    if window_id != self.desktop.current().windows.focused().unwrap().id {
+                        self.desktop.current_mut().window_focus(&self.conn, &self.screen, window_id);
+                    }
 
                     // Handle button press
                     match but {
