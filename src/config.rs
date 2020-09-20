@@ -95,9 +95,6 @@ fn execute(args: &[&str]) {
     // Log
     outlog::debug!("Running command: {:?}", args);
 
-    // Ensure we have a valid argument array
-    if args.len() == 0 { panic!("Empty argument array provided to run_command"); }
-
     // Create new Command object
     let mut cmd = Command::new(args[0]);
 
