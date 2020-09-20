@@ -4,12 +4,13 @@ use crate::event::{Event, KeyEvent, MouseButton};
 use xcb_util::keysyms::KeySymbols;
 
 const ROOT_EVENT_MASK: u32 = xcb::EVENT_MASK_STRUCTURE_NOTIFY|
+                             /*xcb::EVENT_MASK_ENTER_WINDOW|*/
                              /*xcb::EVENT_MASK_PROPERTY_CHANGE|*/
                              xcb::EVENT_MASK_SUBSTRUCTURE_REDIRECT;
 
-const CHILD_EVENT_MASK: u32 = xcb::EVENT_MASK_ENTER_WINDOW|
-                              /*xcb::EVENT_MASK_PROPERTY_CHANGE|*/
-                              xcb::EVENT_MASK_STRUCTURE_NOTIFY;
+//const CHILD_EVENT_MASK: u32 = xcb::EVENT_MASK_ENTER_WINDOW|
+//                              /*xcb::EVENT_MASK_PROPERTY_CHANGE|*/
+//                              xcb::EVENT_MASK_STRUCTURE_NOTIFY;
 
 pub struct XConn<'a> {
     // X server connection
@@ -191,7 +192,7 @@ impl<'a> XConn<'a> {
         match xcb::get_geometry(self.conn, window_id).get_reply() {
             Ok(dimens) => return Some((dimens.x() as i32, dimens.y() as i32, dimens.width() as i32, dimens.height() as i32)),
             Err(_) => {
-                outlog::warn!("Failed getting window geometry for {}. Was window destroy and not yet unmapped?", window_id);
+                outlog::warn!("Failed getting window geometry for {}. Was window destroyed and not yet unmapped?", window_id);
                 return None;
             },
         }
@@ -285,6 +286,12 @@ impl<'a> XConn<'a> {
         // Log this!
         outlog::debug!("on_map_request: {}", event.window());
 
+        // Set child mask
+        //if xcb::change_window_attributes_checked(&self.conn, event.window(), &[(xcb::CW_EVENT_MASK, CHILD_EVENT_MASK)]).request_check().is_err() {
+        //    outlog::warn!("Failed setting map requested window ({}) attributes. Has it been unmapped too quickly?", event.window());
+        //    return None;
+        //}
+
         // Return new MapRequest Event
         return Some(Event::MapRequest(event.window()));
     }
@@ -306,6 +313,11 @@ impl<'a> XConn<'a> {
     }
 
     fn on_enter_notify(&self, event: &xcb::EnterNotifyEvent) -> Option<Event> {
+        // If button press happens not in sub-window to root, we don't care
+        if event.child() == xcb::WINDOW_NONE {
+            return None;
+        }
+
         // Log this!
         outlog::debug!("on_enter_notify: {}", event.child());
 
