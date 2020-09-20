@@ -12,7 +12,10 @@ fragile existence.
 
 # Todos
 
+- refactor much code and contain repeated logic in Desktop possibly?
+
 - tiling mode
+  - window gaps in tiling mode
 
 - fix focusing issues (only gain focus when MOD+click on window again)
 
@@ -26,8 +29,6 @@ fragile existence.
 - set cursor on start
 
 - status bar with workspace info
-
-- window gaps in tiling mode
 
 - window borders
 
