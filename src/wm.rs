@@ -83,6 +83,20 @@ impl<'a> WM<'a> {
 
             // Handle event
             match event {
+                Event::ConfigureRequest(((x, y, width, height), window_id)) => {
+                    if window_id == self.screen.id() {
+                        // If this is the root window, update the screen
+                        outlog::debug!("Received updated root window geometry");
+                        self.screen.set(x, y, width, height);
+                    } else {
+                        // Else try update window geometry in our collection
+                        if let Some((ws, idx)) = self.desktop.contains_mut(window_id) {
+                            outlog::debug!("Updating child window geometry");
+                            ws.windows.get_mut(idx).unwrap().set(x, y, width, height);
+                        }
+                    }
+                },
+
                 Event::MapRequest(window_id) => {
                     if let Some((ws, _)) = self.desktop.contains_mut(window_id) {
                         // We already have this window, if in the current then focus!

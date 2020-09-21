@@ -1,4 +1,5 @@
 pub enum Event {
+    ConfigureRequest(((i32, i32, i32, i32), xcb::Window)),
     MapRequest(xcb::Window),
     UnmapNotify(xcb::Window),
     DestroyNotify(xcb::Window),

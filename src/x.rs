@@ -261,7 +261,7 @@ impl<'a> XConn<'a> {
         xcb::configure_window(&self.conn, event.window(), &values);
 
         // Nothing to return
-        return None;
+        return Some(Event::ConfigureRequest(((event.x() as i32, event.y() as i32, event.width() as i32, event.height() as i32), event.window())));
     }
 
     fn on_map_request(&self, event: &xcb::MapRequestEvent) -> Option<Event> {
