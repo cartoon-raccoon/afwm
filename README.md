@@ -2,7 +2,7 @@ Super simple X window manager in Rust. Accronym TBD.
 
 If you're wondering why any of this then look -- `afwm [-y|--why]`
 
-LOC count (according to `loc` tool): `981`
+LOC count (according to `loc` tool): `982`
 
 Floating only (for now).
 
@@ -28,12 +28,12 @@ Keepin' it simple.
 - tiling mode
   - window gaps in tiling mode
 
-- fix full screen windows breaking EVERYTHING
+- fix full screen windows breaking EVERYTHING (EDIT: i think this may be the lack of ICCCM/EWMH)
 
 - window cycle when highlighting over some ignores them during shuffle
   (because on MOD key press it refocuses then performs focus change again)
 
-- status bar with workspace info
+- status bar with workspace info (dwm-esque)
 
 - window borders
 
