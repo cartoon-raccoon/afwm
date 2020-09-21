@@ -2,7 +2,7 @@ Super simple window manager in Rust. Accronym TBD.
 
 If you're wondering why any of this then look -- `afwm [-y|--why]`
 
-LOC count (according to `loc` tool): `1137`
+LOC count (according to `loc` tool): `1049`
 
 Floating only (for now).
 
@@ -12,6 +12,12 @@ Set your key binds in `src/config.rs`.
 
 This is my learning project for both X and Rust, so I may not accept PRs for now unless
 they're smaller things like bug fixes.
+
+No ICCCM support, see: https://raw.githubusercontent.com/kfish/xsel/master/rant.txt
+
+No EWMH support.
+
+Keepin' it simple.
 
 # Todos
 
@@ -31,6 +37,3 @@ they're smaller things like bug fixes.
 
 - properly comment (add where missing, fix old comments)
 
-- ICCCM support
-
-- EWMH support?
