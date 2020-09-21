@@ -1,194 +1,194 @@
 use crate::config::MODKEY;
+use crate::cursor::{CoreCursor, CursorIndex};
 use crate::event::{Event, KeyEvent, MouseButton};
+use crate::helper;
 
 use xcb_util::keysyms::KeySymbols;
 
-const ROOT_EVENT_MASK: u32 = xcb::EVENT_MASK_STRUCTURE_NOTIFY|
-                             /*xcb::EVENT_MASK_ENTER_WINDOW|*/
-                             /*xcb::EVENT_MASK_PROPERTY_CHANGE|*/
-                             xcb::EVENT_MASK_SUBSTRUCTURE_REDIRECT;
-
-//const CHILD_EVENT_MASK: u32 = xcb::EVENT_MASK_ENTER_WINDOW|
-//                              /*xcb::EVENT_MASK_PROPERTY_CHANGE|*/
-//                              xcb::EVENT_MASK_STRUCTURE_NOTIFY;
+pub trait XWindow {
+    fn id(&self) -> xcb::Window;
+    fn set(&mut self, x: i32, y: i32, width: i32, height: i32);
+}
 
 pub struct XConn<'a> {
     // X server connection
     pub conn: &'a xcb::Connection,
 
-    // Connected screen index
-    pub screen_idx: i32,
-
-    // Root window ID
-    pub root: xcb::Window,
+    // Stored loaded cursors + optional core cursor font
+    core_cursor_font: Option<u32>,
+    cursors: [u32; 1],
 
     // KeySymbol lookup object
     key_syms: KeySymbols<'a>,
 }
 
 impl<'a> XConn<'a> {
-    pub fn register(conn: &'a xcb::Connection, screen_idx: i32, keys: &Vec<(xcb::ModMask, xcb::Keysym)>) -> Self {
-        // Get the root window id
-        let root = conn.get_setup().roots().nth(screen_idx as usize)
-                       .unwrap_or_else(||{panic!("Fetching root window for screen {}", screen_idx)}).root();
-        outlog::debug!("Fetched root window ID");
-
-        // Register root window to receive events
-        xcb::change_window_attributes_checked(conn, root, &[
-            (xcb::CW_EVENT_MASK, ROOT_EVENT_MASK),
-        ]).request_check().expect("Registering with X server as window manager");
-        outlog::debug!("Registered as window manager");
-
-        // New KeySymbols object for keysym lookup
-        let key_syms = KeySymbols::new(conn);
-
-        // Register click events to grab
-        xcb::grab_button(
-            conn,
-            false,                                                                     // owner events, (a.k. don't pass on events to root window)
-            root,                                                                      // window id
-            xcb::EVENT_MASK_BUTTON_PRESS as u16|xcb::EVENT_MASK_BUTTON_RELEASE as u16, // button event mask
-            xcb::GRAB_MODE_ASYNC as u8,                                                // pointer mode
-            xcb::GRAB_MODE_ASYNC as u8,                                                // keyboard mode
-            root,                                                                      // confine pointer to window (or no confine)
-            xcb::NONE,                                                                 // cursor to use
-            xcb::BUTTON_INDEX_1 as u8,                                                 // button to grab (left click)
-            MODKEY as u16,                                                             // Modifiers to grab mouse with
-        );
-        xcb::grab_button(
-            conn,
-            false,                                                                     // owner events, (a.k. don't pass on events to root window)
-            root,                                                                      // window id
-            xcb::EVENT_MASK_BUTTON_PRESS as u16|xcb::EVENT_MASK_BUTTON_RELEASE as u16, // button event mask
-            xcb::GRAB_MODE_ASYNC as u8,                                                // pointer mode
-            xcb::GRAB_MODE_ASYNC as u8,                                                // keyboard mode
-            root,                                                                      // confine pointer to window (or no confine)
-            xcb::NONE,                                                                 // cursor to use
-            xcb::BUTTON_INDEX_3 as u8,                                                 // button to grab (right click)
-            MODKEY as u16,                                                             // Modifiers to grab mouse with
-        );
-
-        // Register keys events to grab
-        for (mask, keysym) in keys.iter() {
-            // Get code iter for keysym
-            let code = key_syms.get_keycode(*keysym).next();
-
-            // If no code, log and move-on
-            if code.is_none() {
-                outlog::warn!("Keysym translated to zero-length keycode iter");
-                continue;
-            }
-
-            let code = code.unwrap();
-
-            // Register the keycode
-            xcb::grab_key(
-                conn,
-                false,                       // owner events (a.k.a don't pass on events to root window)
-                root,                        // window id
-                *mask as u16,                // key mod mask
-                code,                        // keycode
-                xcb::GRAB_MODE_ASYNC as u8,  // pointer mode
-                xcb::GRAB_MODE_ASYNC as u8   // keyboard mode
-            );
-            outlog::debug!("Registered grabbed key: {} {}", *mask, code);
-        }
-
-        // Return new XConn
+    pub fn new(conn: &'a xcb::Connection) -> Self {
         Self {
-            conn:       conn,
-            screen_idx: screen_idx,
-            root:       root,
-            key_syms:   key_syms,
+            conn:             conn,
+            core_cursor_font: None,
+            cursors:          [0; 1],
+            key_syms:         KeySymbols::new(conn),
         }
     }
 
-    pub fn query_tree(&self) -> Vec<xcb::Window> {
-        let reply = xcb::query_tree(&self.conn, self.root).get_reply().expect("Querying window tree");
+    pub fn create_core_cursor(&mut self, cursor: CursorIndex, core_cursor: CoreCursor) {
+        // Try get core cursor font id, else load it
+        let font_id = if let Some(font_id) = self.core_cursor_font {
+            font_id
+        } else {
+            // Allocate new font id
+            let font_id = self.conn.generate_id();
+
+            // Try open cursor font
+            xcb::open_font_checked(self.conn, font_id, "cursor").request_check().expect("Opening cursor font");
+
+            // Set the core cursor font id
+            self.core_cursor_font = Some(font_id);
+
+            // And return!
+            font_id
+        };
+
+        // Allocate new cursor id
+        let cursor_id = self.conn.generate_id();
+
+        // Create new glyph cursor based on supplied core_cursor
+        xcb::create_glyph_cursor_checked(self.conn, cursor_id, font_id, font_id, core_cursor.value(), core_cursor.mask(), 0, 0, 0, 0, 0, 0).request_check().expect("Creating glyph cursor");
+
+        // Store the cursor id in the cursors array at supplied index
+        self.cursors[cursor as usize] = cursor_id;
+    }
+
+    pub fn set_cursor(&mut self, window_id: xcb::Window, cursor: CursorIndex) {
+        // Get the cursor id at index in the stored cursors array
+        let cursor_id = self.cursors[cursor as usize];
+
+        // Set the window cursor attributes
+        self.change_window_attributes(window_id, &helper::values_attributes_cursor(cursor_id));
+    }
+
+    pub fn get_setup(&self) -> xcb::Setup {
+        outlog::debug!("Getting setup");
+        return self.conn.get_setup();
+    }
+
+    pub fn query_tree(&self, window_id: xcb::Window) -> Vec<xcb::Window> {
+        outlog::debug!("Querying tree for window: {}", window_id);
+        let reply = xcb::query_tree(&self.conn, window_id).get_reply().expect("Querying window tree");
         return reply.children().iter().map(|w| { *w }).collect();
     }
 
-    pub fn window_map(&self, window: xcb::Window) {
-        outlog::debug!("Mapping window: {}", window);
-        xcb::map_window(self.conn, window);
+    pub fn map_window(&self, window_id: xcb::Window) {
+        outlog::debug!("Mapping window: {}", window_id);
+        xcb::map_window(self.conn, window_id);
     }
 
-    pub fn window_unmap(&self, window: xcb::Window) {
-        outlog::debug!("Unmapping window: {}", window);
-        xcb::unmap_window(self.conn, window);
+    pub fn unmap_window(&self, window_id: xcb::Window) {
+        outlog::debug!("Unmapping window: {}", window_id);
+        xcb::unmap_window(self.conn, window_id);
     }
 
-    pub fn window_ontop(&self, window_id: xcb::Window) {
-        outlog::debug!("Moving window to top of stack: {}", window_id);
-        xcb::configure_window(self.conn, window_id, &[(xcb::CONFIG_WINDOW_STACK_MODE as u16, xcb::STACK_MODE_ABOVE)]);
-    }
-
-    pub fn window_move(&self, window_id: xcb::Window, x: u32, y: u32) {
-        outlog::debug!("Moving window: {}", window_id);
-        xcb::configure_window(self.conn, window_id, &[(xcb::CONFIG_WINDOW_X as u16, x), (xcb::CONFIG_WINDOW_Y as u16, y)]);
-    }
-
-    pub fn window_resize(&self, window_id: xcb::Window, width: u32, height: u32) {
-        outlog::debug!("Resizing window: {}", window_id);
-        xcb::configure_window(self.conn, window_id, &[(xcb::CONFIG_WINDOW_WIDTH as u16, width), (xcb::CONFIG_WINDOW_HEIGHT as u16, height)]);
-    }
-
-    pub fn window_configure(&self, window_id: xcb::Window, x: u32, y: u32, width: u32, height: u32) {
+    pub fn configure_window(&self, window_id: xcb::Window, values: &[(u16, u32)]) {
         outlog::debug!("Configuring window: {}", window_id);
-        xcb::configure_window(self.conn, window_id, &[
-            (xcb::CONFIG_WINDOW_X as u16, x),
-            (xcb::CONFIG_WINDOW_Y as u16, y),
-            (xcb::CONFIG_WINDOW_WIDTH as u16, width),
-            (xcb::CONFIG_WINDOW_HEIGHT as u16, height),
-        ]);
+        xcb::configure_window(self.conn, window_id, values);
     }
 
-    pub fn window_enable_tracking(&self, window: xcb::Window) {
-        outlog::debug!("Enabling window tracking on: {}", window);
-        xcb::change_window_attributes(self.conn, window, &[
-            (xcb::CW_EVENT_MASK, xcb::EVENT_MASK_ENTER_WINDOW|xcb::EVENT_MASK_STRUCTURE_NOTIFY),
-        ]);
+    pub fn change_window_attributes(&self, window_id: xcb::Window, values: &[(u32, u32)]) {
+        outlog::debug!("Changing window attributes: {}", window_id);
+        xcb::change_window_attributes(self.conn, window_id, values);
     }
 
-    pub fn window_disable_tracking(&self, window: xcb::Window) {
-        outlog::debug!("Disabling window tracking on: {}", window);
-        xcb::change_window_attributes(self.conn, window, &[
-            (xcb::CW_EVENT_MASK, xcb::EVENT_MASK_NO_EVENT),
-        ]);
+    pub fn change_window_attributes_checked(&self, window_id: xcb::Window, values: &[(u32, u32)]) {
+        outlog::debug!("Changing window attributes: {}", window_id);
+        xcb::change_window_attributes_checked(self.conn, window_id, values).request_check().expect("Changing window attributes");
     }
 
-    pub fn window_focus(&self, window: xcb::Window) {
-        outlog::debug!("Focusing window: {}", window);
-        xcb::set_input_focus(self.conn, xcb::INPUT_FOCUS_POINTER_ROOT as u8, window, xcb::CURRENT_TIME);
+    pub fn set_input_focus(&self, window_id: xcb::Window) {
+        outlog::debug!("Focusing window: {}", window_id);
+        xcb::set_input_focus(self.conn, xcb::INPUT_FOCUS_POINTER_ROOT as u8, window_id, xcb::CURRENT_TIME);
     }
 
-    pub fn window_close(&self, window: xcb::Window) {
-        outlog::debug!("Destroying window: {}", window);
-        xcb::destroy_window(self.conn, window);
+    pub fn destroy_window(&self, window_id: xcb::Window) {
+        outlog::debug!("Destroying window: {}", window_id);
+        xcb::destroy_window(self.conn, window_id);
     }
 
-    pub fn grab_pointer(&self) {
-        outlog::debug!("Grabbing pointer for root window");
+    pub fn grab_key(&self, window_id: xcb::Window, mask: xcb::ModMask, keysym: xcb::Keysym, confine: bool) {
+        outlog::debug!("Grabbing key with mask:{} sym:{} for window: {}", mask, keysym, window_id);
+
+        // Get code iter for keysym
+        let code = self.key_syms.get_keycode(keysym).next();
+
+        // If no code, log and move-on. Else, unwrap
+        if code.is_none() {
+            outlog::warn!("Keysym {} translated to zero-length keycode iter, not grabbing", keysym);
+            return;
+        }
+        let code = code.unwrap();
+
+        // Register key code to grab with X
+        xcb::grab_key(
+            self.conn,
+            false,                       // owner events (a.k.a don't pass on events to root window)
+            window_id,                   // window id
+            mask as u16,                 // key mod mask
+            code,                        // keycode
+            xcb::GRAB_MODE_ASYNC as u8,  // pointer mode
+            xcb::GRAB_MODE_ASYNC as u8   // keyboard mode
+        );
+    }
+
+    pub fn grab_button(&self, window_id: xcb::Window, mask: xcb::ButtonMask, button: xcb::ButtonIndex, modmask: xcb::ModMask, confine: bool) {
+        outlog::debug!("Grabbing button {} for window: {}", window_id, button);
+        xcb::grab_button(
+            self.conn,
+            false,                                       // owner events (a.k. don't pass on events to root window)
+            window_id,                                   // window id
+            mask as u16,                                 // button event mask
+            xcb::GRAB_MODE_ASYNC as u8,                  // pointer mode
+            xcb::GRAB_MODE_ASYNC as u8,                  // keyboard mode
+            if confine { window_id } else { xcb::NONE }, // confine pointer to window (or no confine)
+            xcb::NONE,                                   // cursor to use
+            button as u8,                                // button to grab (right click)
+            modmask as u16,                              // Modifiers to grab mouse with
+        );
+    }
+
+    pub fn grab_pointer(&self, window_id: xcb::Window, mask: xcb::EventMask, confine: bool) {
+        outlog::debug!("Grabbing pointer for window: {}", window_id);
         xcb::grab_pointer(
             self.conn,
-            false,
-            self.root,
-            (xcb::EVENT_MASK_BUTTON_RELEASE|xcb::EVENT_MASK_BUTTON_MOTION) as u16,
-            xcb::GRAB_MODE_ASYNC as u8,
-            xcb::GRAB_MODE_ASYNC as u8,
-            self.root,
-            xcb::NONE,
-            xcb::CURRENT_TIME,
+            false,                                       // owner events (a.k. don't pass on events to root window)
+            window_id,                                   //
+            mask as u16,                                 //
+            xcb::GRAB_MODE_ASYNC as u8,                  //
+            xcb::GRAB_MODE_ASYNC as u8,                  //
+            if confine { window_id } else { xcb::NONE }, //
+            xcb::NONE,                                   //
+            xcb::CURRENT_TIME,                           //
         );
     }
 
     pub fn ungrab_pointer(&self) {
-        outlog::debug!("Ungrabbing pointer for root window");
+        outlog::debug!("Ungrabbing pointer");
         xcb::ungrab_pointer(self.conn, xcb::CURRENT_TIME);
     }
 
+    pub fn update_geometry(&self, window: &mut impl XWindow) -> bool {
+        match self.get_geometry(window.id()) {
+            Some((x, y, width, height)) => {
+                // Update supplied window's geometry, return true
+                window.set(x, y, width, height);
+                return true;
+            },
+
+            None => return false,
+        }
+    }
+
     pub fn get_geometry(&self, window_id: xcb::Window) -> Option<(i32, i32, i32, i32)> {
-        outlog::debug!("Getting window geometry: {}", window_id);
+        outlog::debug!("Getting geometry for window: {}", window_id);
         match xcb::get_geometry(self.conn, window_id).get_reply() {
             Ok(dimens) => return Some((dimens.x() as i32, dimens.y() as i32, dimens.width() as i32, dimens.height() as i32)),
             Err(_) => {
@@ -198,8 +198,8 @@ impl<'a> XConn<'a> {
         }
     }
 
-    pub fn get_pointer(&self, window_id: xcb::Window) -> (i32, i32, xcb::Window) {
-        outlog::debug!("Querying window pointer location: {}", window_id);
+    pub fn query_pointer(&self, window_id: xcb::Window) -> (i32, i32, xcb::Window) {
+        outlog::debug!("Querying pointer location for window: {}", window_id);
         let pointer = xcb::query_pointer(self.conn, window_id).get_reply().expect("Querying window pointer location");
         return (pointer.root_x() as i32, pointer.root_y() as i32, pointer.child())
     }
@@ -382,9 +382,6 @@ impl<'a> XConn<'a> {
             },
         };
 
-        // Grab pointer while button pressed
-        self.grab_pointer();
-
         // Return the event
         return Some(tuple);
     }
@@ -415,9 +412,6 @@ impl<'a> XConn<'a> {
                 return None;
             },
         };
-
-        // Ungrab pointer now button released
-        self.ungrab_pointer();
 
         // Return the event
         return Some(ev);

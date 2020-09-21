@@ -1,11 +1,12 @@
+use crate::helper;
 use crate::screen::Screen;
-use crate::xconn::XConn;
+use crate::x::{XConn, XWindow};
 
 use std::collections::VecDeque;
 
 #[derive(Copy, Clone)]
 pub struct Window {
-    pub id: xcb::Window,
+    id: xcb::Window,
 
     pub x: i32,
     pub y: i32,
@@ -34,17 +35,20 @@ impl From<xcb::Window> for Window {
     }
 }
 
-impl Window {
-    pub fn update_geometry(&mut self, conn: &XConn) {
-        // Get and set current window geometry (if we can!)
-        if let Some((x, y, w, h)) = conn.get_geometry(self.id) {
-            self.x = x;
-            self.y = y;
-            self.width = w;
-            self.height = h;
-        }
+impl XWindow for Window {
+    fn id(&self) -> xcb::Window {
+        return self.id;
     }
 
+    fn set(&mut self, x: i32, y: i32, width: i32, height: i32) {
+        self.x = x;
+        self.y = y;
+        self.width = width;
+        self.height = height;
+    }
+}
+
+impl Window {
     pub fn do_resize(&mut self, conn: &XConn, screen: &Screen, dx: i32, dy: i32) {
         // Iterate current size values
         self.width += dx;
@@ -61,7 +65,7 @@ impl Window {
         }
 
         // Send new window configuration to X
-        conn.window_resize(self.id, self.width as u32, self.height as u32);
+        conn.configure_window(self.id, &helper::values_configure_resize(self.width as u32, self.height as u32));
     }
 
     // we're using this name because `move` is reseeeeerved, bleh
@@ -71,7 +75,7 @@ impl Window {
         self.y += dy;
 
         // Send new window configuration to X
-        conn.window_move(self.id, self.x as u32, self.y as u32);
+        conn.configure_window(self.id, &helper::values_configure_move(self.x as u32, self.y as u32));
     }
 }
 

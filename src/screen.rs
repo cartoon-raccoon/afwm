@@ -1,5 +1,5 @@
 use crate::config::BAR_SIZE;
-use crate::xconn::XConn;
+use crate::x::{XConn, XWindow};
 
 pub struct Screen {
     pub x: i32,
@@ -8,11 +8,27 @@ pub struct Screen {
     pub width: i32,
     pub height: i32,
 
-    bar: i32,
+    pub idx: i32,
+    root_id: xcb::Window,
+
+//    bar: i32,
 }
 
-impl Default for Screen {
-    fn default() -> Self {
+impl XWindow for Screen {
+    fn id(&self) -> xcb::Window {
+        return self.root_id;
+    }
+
+    fn set(&mut self, x: i32, y: i32, width: i32, height: i32) {
+        self.x = x;
+        self.y = y;
+        self.width = width; 
+        self.height = height;
+    }
+}
+
+impl Screen {
+    pub fn new(screen_idx: i32, root_id: xcb::Window) -> Self {
         Self {
             x: 0,
             y: 0,
@@ -20,22 +36,10 @@ impl Default for Screen {
             width: 0,
             height: 0,
 
-            bar: BAR_SIZE as i32,
+            idx: screen_idx,
+            root_id: root_id,
+
+//            bar: BAR_SIZE as i32,
         }
-    }
-}
-
-impl Screen {
-    pub fn update_geometry(&mut self, conn: &XConn) {
-        // Get new window geometry
-        let (x, y, w, h) = conn.get_geometry(conn.root).expect("Failed getting root window geometry");
-
-        // Set x, y start
-        self.x = x;
-        self.y = y + self.bar; // starts after bar
-
-        // Set sizes
-        self.width = w;
-        self.height = h - self.bar;
     }
 }

@@ -1,12 +1,14 @@
 mod config;
+mod cursor;
 mod desktop;
 mod event;
+mod helper;
 mod layout;
 mod screen;
 mod windows;
 mod wm;
 mod workspace;
-mod xconn;
+mod x;
 
 use wm::WM;
 use config::KEYBINDS;
@@ -71,13 +73,8 @@ fn main() {
     let (conn, screen_idx) = xcb::Connection::connect(None).expect("Failed to connect to xserver");
     outlog::info!("Connected to X server");
 
-    // Get just masks and keys from config
-    let keys = KEYBINDS.iter().map(
-        |(mask, key, _)| { return (*mask, *key); }
-    ).collect();
-
     // Create new window manager object
-    let mut wm = WM::new(&conn, screen_idx, &keys);
+    let mut wm = WM::register(&conn, screen_idx);
 
     // Run window manager!
     wm.run();

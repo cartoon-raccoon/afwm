@@ -37,7 +37,7 @@ pub const KEYBINDS: &[(xcb::ModMask, xcb::Keysym, fn(&mut WM))] = &[
     (MODKEY|xproto::MOD_MASK_SHIFT, keysym::XK_Return, |_|{ run(&["urxvt-launch"]) }),
 
     // Close focused window
-    (MODKEY|xproto::MOD_MASK_SHIFT, keysym::XK_c, |wm|{ wm.desktop.current_mut().window_close_focused(&wm.conn) }),
+    (MODKEY|xproto::MOD_MASK_SHIFT, keysym::XK_c, |wm|{ wm.desktop.current_mut().window_close_focused(&wm.conn, &wm.screen) }),
 
     // Kill window manager
     (MODKEY|xproto::MOD_MASK_SHIFT, keysym::XK_q, |wm|{ wm.kill() }),
@@ -78,8 +78,9 @@ pub const KEYBINDS: &[(xcb::ModMask, xcb::Keysym, fn(&mut WM))] = &[
 
 // If there is a currently focused window, sends from current workspace to workspace at index
 fn send_window_from_workspace_to(wm: &mut WM, idx: usize) {
-    if let Some(prev_focused) = wm.desktop.current_mut().window_del_focused(&wm.conn, &wm.screen) {
-        wm.desktop.get_mut(idx).windows.add(Window::from(prev_focused));
+    if let Some(focused) = wm.desktop.current_mut().window_del_focused(&wm.conn, &wm.screen) {
+        // Remove this window from current workspace
+        wm.desktop.get_mut(idx).windows.add(Window::from(focused));
     }
 }
 

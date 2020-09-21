@@ -1,8 +1,10 @@
-use crate::config::KEYBINDS;
+use crate::config::{KEYBINDS, MODKEY};
+use crate::cursor::{CoreCursor, CursorIndex};
 use crate::desktop::Desktop;
 use crate::event::{Event, MouseButton};
+use crate::helper;
 use crate::screen::Screen;
-use crate::xconn::XConn;
+use crate::x::{XConn, XWindow};
 
 #[derive(PartialEq)]
 enum MouseMode {
@@ -29,26 +31,47 @@ pub struct WM<'a> {
 }
 
 impl<'a> WM<'a> {
-    pub fn new(conn: &'a xcb::Connection, screen_idx: i32, keys: &Vec<(xcb::ModMask, xcb::Keysym)>) -> Self {
-        // Register our XConn
-        let xconn = XConn::register(conn, screen_idx, keys);
+    pub fn register(conn: &'a xcb::Connection, screen_idx: i32) -> Self {
+        // Create new XConn wrapping xcb::Connection
+        let mut xconn = XConn::new(conn);
 
-        // Create new WM object
-        let mut new = Self {
+        // Get root window id for screen index
+        let root_id = xconn.get_setup().roots().nth(screen_idx as usize).expect("Getting root window id for screen index").root();
+
+        // Create new screen object
+        let mut screen = Screen::new(screen_idx, root_id);
+
+        // Try register the root window for necessary window management events
+        xconn.change_window_attributes_checked(root_id, &helper::values_attributes_root());
+
+        // For configured keybinds, register X to grab keys on the root window
+        for (mask, keysym, _) in KEYBINDS {
+            xconn.grab_key(root_id, *mask, *keysym, true);
+        }
+
+        // Register root window to grab necessary mouse button events
+        xconn.grab_button(root_id, helper::ROOT_BUTTON_GRAB_MASK, xcb::BUTTON_INDEX_1, MODKEY, true);
+        xconn.grab_button(root_id, helper::ROOT_BUTTON_GRAB_MASK, xcb::BUTTON_INDEX_3, MODKEY, true);
+
+        // Create necessary core cursors
+        xconn.create_core_cursor(CursorIndex::LeftPointer, CoreCursor::LeftPtr);
+
+        // Now set the default starting cursor
+        xconn.set_cursor(root_id, CursorIndex::LeftPointer);
+
+        // Perform initial screen geometry fetch
+        xconn.update_geometry(&mut screen);
+
+        // Return new WM object
+        return Self {
             conn: xconn,
             desktop: Desktop::default(),
-            screen:  Screen::default(),
+            screen:  screen,
             mouse_mode: MouseMode::Ground,
             last_mouse_x: 0,
             last_mouse_y: 0,
             running: true,
         };
-
-        // Perform initial screen geometry fetch
-        new.screen.update_geometry(&new.conn);
-
-        // Return new self!
-        return new;
     }
 
     pub fn run(&mut self) {
@@ -75,26 +98,20 @@ impl<'a> WM<'a> {
                 Event::UnmapNotify(window_id) => {
                     // Remove window (if there!)
                     if let Some((ws, idx)) = self.desktop.contains_mut(window_id) {
-                        ws.window_del(&self.conn, &self.screen, window_id);
-
-                        // View may have changed
-                        self.screen.update_geometry(&self.conn);
+                        ws.window_del(&self.conn, &self.screen, idx, window_id);
                     }
                 },
 
                 Event::DestroyNotify(window_id) => {
                     // Remove window (if there!)
                     if let Some((ws, idx)) = self.desktop.contains_mut(window_id) {
-                        ws.window_del(&self.conn, &self.screen, window_id);
-
-                        // View may have changed
-                        self.screen.update_geometry(&self.conn);
+                        ws.window_del(&self.conn, &self.screen, idx, window_id);
                     }
                 },
 
                 Event::EnterNotify(window_id) => {
-                    // Focus this windo
-                    self.conn.window_focus(window_id);
+                    // Focus input to this window
+                    self.conn.set_input_focus(window_id);
                 },
 
                 Event::MotionNotify => {
@@ -104,7 +121,7 @@ impl<'a> WM<'a> {
                     }
 
                     // Get current pointer location
-                    let (px, py, _) = self.conn.get_pointer(self.conn.root);
+                    let (px, py, _) = self.conn.query_pointer(self.screen.id());
 
                     // Calculate dx, dy
                     let dx = (px - self.last_mouse_x) as i32;
@@ -153,13 +170,16 @@ impl<'a> WM<'a> {
                         continue;
                     }
 
+                    // Grab pointer input
+                    self.conn.grab_pointer(self.screen.id(), helper::ROOT_POINTER_GRAB_MASK, false);
+
                     // Get current pointer position
-                    let (px, py, _) = self.conn.get_pointer(self.conn.root);
+                    let (px, py, _) = self.conn.query_pointer(self.screen.id());
                     self.last_mouse_x = px;
                     self.last_mouse_y = py;
 
                     // If window id different to focused, focus this one
-                    if window_id != self.desktop.current().windows.focused().unwrap().id {
+                    if window_id != self.desktop.current().windows.focused().unwrap().id() {
                         self.desktop.current_mut().window_focus(&self.conn, &self.screen, window_id);
                     }
 
@@ -178,6 +198,9 @@ impl<'a> WM<'a> {
                 },
 
                 Event::ButtonRelease(_) => {
+                    // Ungrab pointer input
+                    self.conn.ungrab_pointer();
+
                     // Regardless of button, current state etc, we unset the mouse mode
                     self.mouse_mode = MouseMode::Ground;
                 },
