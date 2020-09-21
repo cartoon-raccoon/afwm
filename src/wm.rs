@@ -93,6 +93,8 @@ impl<'a> WM<'a> {
                         if let Some((ws, idx)) = self.desktop.contains_mut(window_id) {
                             outlog::debug!("Updating child window geometry");
                             ws.windows.get_mut(idx).unwrap().set(x, y, width, height);
+                        } else {
+                            outlog::warn!("Recieved configure request event for non-tracked window: {}", window_id);
                         }
                     }
                 },
