@@ -6,6 +6,7 @@ pub enum CursorIndex {
 #[repr(u16)]
 #[derive(Copy, Clone)]
 pub enum CoreCursor {
+    /*
     XCursor = 0,
     Arrow = 1,
     BasedArrowDown = 2,
@@ -40,7 +41,9 @@ pub enum CoreCursor {
     Heart = 31,
     Icon = 32,
     IronCross = 33,
+    */
     LeftPtr = 34,
+    /*
     LeftSide = 35,
     LeftTee = 36,
     LeftButton = 37,
@@ -83,6 +86,7 @@ pub enum CoreCursor {
     UrAngle = 74,
     Watch = 75,
     Xterm = 76,
+    */
 }
 
 impl CoreCursor {
