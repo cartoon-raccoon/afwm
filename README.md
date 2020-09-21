@@ -1,4 +1,4 @@
-Super simple window manager in Rust. Accronym TBD.
+Super simple X window manager in Rust. Accronym TBD.
 
 If you're wondering why any of this then look -- `afwm [-y|--why]`
 
@@ -12,6 +12,8 @@ Set your key binds in `src/config.rs`.
 
 This is my learning project for both X and Rust, so I may not accept PRs for now unless
 they're smaller things like bug fixes.
+
+Uses Rust bindings for XCB vs the older Xlib.
 
 No ICCCM support, see: https://raw.githubusercontent.com/kfish/xsel/master/rant.txt
 
