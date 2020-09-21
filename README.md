@@ -11,11 +11,6 @@ fragile existence.
 
 # Todos
 
-- switch to using x11rb library?
-
-- figure out `EVENT_MASK_ENTER_WINDOW` for mapped windows (fucks keyboard input
-  if we enable this)
-
 - tiling mode
   - window gaps in tiling mode
 
@@ -34,4 +29,6 @@ fragile existence.
 
 - properly comment (add where missing, fix old comments)
 
-- OPTIMISE
+- ICCCM support
+
+- EWMH support?
