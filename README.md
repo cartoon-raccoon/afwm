@@ -8,6 +8,8 @@ Floating only (for now).
 
 Set your key binds in `src/config.rs`
 
+![screenshot](https://github.com/grufwub/afwm/raw/master/screenshot.png)
+
 # Todos
 
 - tiling mode
