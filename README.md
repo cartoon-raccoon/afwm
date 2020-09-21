@@ -2,7 +2,7 @@ Super simple window manager in Rust. Accronym TBD.
 
 If you're wondering why any of this then look -- `afwm [-y|--why]`
 
-LOC count (according to `loc` tool): `967`
+LOC count (according to `loc` tool): `981`
 
 Floating only (for now).
 
