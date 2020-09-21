@@ -1,5 +1,5 @@
 use crate::config::BAR_SIZE;
-use crate::x::{XConn, XWindow};
+use crate::x::XWindow;
 
 pub struct Screen {
     pub x: i32,

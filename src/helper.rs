@@ -38,7 +38,7 @@ pub fn values_attributes_root() -> [(u32, u32); 1] {
 
 pub fn values_attributes_child_events() -> [(u32, u32); 1] {
     outlog::debug!("VALUES: attributes child events");
-    return [(xcb::CW_EVENT_MASK, xcb::EVENT_MASK_ENTER_WINDOW|xcb::EVENT_MASK_STRUCTURE_NOTIFY)];
+    return [(xcb::CW_EVENT_MASK, xcb::EVENT_MASK_ENTER_WINDOW)];
 }
 
 pub fn values_attributes_no_events() -> [(u32, u32); 1] {

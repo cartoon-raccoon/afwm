@@ -35,6 +35,9 @@ pub fn window_add(ws: &mut Workspace, conn: &XConn, screen: &Screen, window_id: 
     conn.map_window(window_id);
     conn.set_input_focus(window_id);
 
+    // Set child window mask
+    conn.change_window_attributes(window_id, &helper::values_attributes_child_events());
+
     // Update the window geometry
     conn.update_geometry(ws.windows.focused_mut().unwrap());
 }

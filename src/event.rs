@@ -3,9 +3,9 @@ pub enum Event {
     UnmapNotify(xcb::Window),
     DestroyNotify(xcb::Window),
     EnterNotify(xcb::Window),
-    MotionNotify,
+    MotionNotify((i32, i32)),
     KeyPress((KeyEvent, xcb::Window)),
-    ButtonPress((MouseButton, xcb::Window)),
+    ButtonPress(((i32, i32), MouseButton, xcb::Window)),
     ButtonRelease(MouseButton),
 }
 

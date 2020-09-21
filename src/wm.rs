@@ -114,14 +114,11 @@ impl<'a> WM<'a> {
                     self.conn.set_input_focus(window_id);
                 },
 
-                Event::MotionNotify => {
+                Event::MotionNotify((px, py)) => {
                     // If no tracked windows, nothing to do
                     if self.desktop.current().windows.is_empty() {
                         continue;
                     }
-
-                    // Get current pointer location
-                    let (px, py, _) = self.conn.query_pointer(self.screen.id());
 
                     // Calculate dx, dy
                     let dx = (px - self.last_mouse_x) as i32;
@@ -164,17 +161,13 @@ impl<'a> WM<'a> {
                     }
                 },
 
-                Event::ButtonPress((but, window_id)) => {
+                Event::ButtonPress(((px, py), but, window_id)) => {
                     // If no windows, nothing to do
                     if self.desktop.current().windows.is_empty() {
                         continue;
                     }
 
-                    // Grab pointer input
-                    self.conn.grab_pointer(self.screen.id(), helper::ROOT_POINTER_GRAB_MASK, false);
-
-                    // Get current pointer position
-                    let (px, py, _) = self.conn.query_pointer(self.screen.id());
+                    // Set current mouse position
                     self.last_mouse_x = px;
                     self.last_mouse_y = py;
 
@@ -182,6 +175,9 @@ impl<'a> WM<'a> {
                     if window_id != self.desktop.current().windows.focused().unwrap().id() {
                         self.desktop.current_mut().window_focus(&self.conn, &self.screen, window_id);
                     }
+
+                    // Start grabbing pointer
+                    self.conn.grab_pointer(self.screen.id(), helper::ROOT_POINTER_GRAB_MASK, false);
 
                     // Handle button press
                     match but {
@@ -198,11 +194,16 @@ impl<'a> WM<'a> {
                 },
 
                 Event::ButtonRelease(_) => {
-                    // Ungrab pointer input
-                    self.conn.ungrab_pointer();
-
                     // Regardless of button, current state etc, we unset the mouse mode
                     self.mouse_mode = MouseMode::Ground;
+
+                    // Ungrab pointer
+                    self.conn.ungrab_pointer();
+
+                    // Reset all visible window masks
+                    for window in self.desktop.current().windows.iter() {
+                        self.conn.change_window_attributes(window.id(), &helper::values_attributes_child_events());
+                    }
                 },
             }
         }

@@ -105,7 +105,7 @@ impl<'a> XConn<'a> {
     }
 
     pub fn set_input_focus(&self, window_id: xcb::Window) {
-        outlog::debug!("Focusing window: {}", window_id);
+        outlog::debug!("Setting input focus window: {}", window_id);
         xcb::set_input_focus(self.conn, xcb::INPUT_FOCUS_POINTER_ROOT as u8, window_id, xcb::CURRENT_TIME);
     }
 
@@ -313,16 +313,11 @@ impl<'a> XConn<'a> {
     }
 
     fn on_enter_notify(&self, event: &xcb::EnterNotifyEvent) -> Option<Event> {
-        // If button press happens not in sub-window to root, we don't care
-        if event.child() == xcb::WINDOW_NONE {
-            return None;
-        }
-
         // Log this!
-        outlog::debug!("on_enter_notify: {}", event.child());
+        outlog::debug!("on_enter_notify: {}", event.event());
 
         // Return new EnterNotify Event
-        return Some(Event::EnterNotify(event.child()));
+        return Some(Event::EnterNotify(event.event()));
     }
 
     fn on_motion_notify(&self, event: &xcb::MotionNotifyEvent) -> Option<Event> {
@@ -335,7 +330,7 @@ impl<'a> XConn<'a> {
         outlog::debug!("on_motion_notify: {}", event.child());
 
         // Return new MotionNotify Event
-        return Some(Event::MotionNotify);
+        return Some(Event::MotionNotify((event.root_x() as i32, event.root_y() as i32)));
     }
 
     fn on_key_press(&self, event: &xcb::KeyPressEvent) -> Option<Event> {
@@ -366,13 +361,13 @@ impl<'a> XConn<'a> {
             // Left click
             xcb::BUTTON_INDEX_1 => {
                 outlog::debug!("on_button_press: mouse left click");
-                Event::ButtonPress((MouseButton::LeftClick, event.child()))
+                Event::ButtonPress(((event.root_x() as i32, event.root_y() as i32), MouseButton::LeftClick, event.child()))
             }
 
             // Right click
             xcb::BUTTON_INDEX_3 => {
                 outlog::debug!("on_button_press: mouse right click");
-                Event::ButtonPress((MouseButton::RightClick, event.child()))
+                Event::ButtonPress(((event.root_x() as i32, event.root_y() as i32), MouseButton::RightClick, event.child()))
             }
 
             // Invalid button press, return nothing
