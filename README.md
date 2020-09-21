@@ -6,9 +6,12 @@ LOC count (according to `loc` tool): `1137`
 
 Floating only (for now).
 
-Set your key binds in `src/config.rs`
+Set your key binds in `src/config.rs`.
 
 ![screenshot](https://github.com/grufwub/afwm/raw/master/screenshot.png)
+
+This is my learning project for both X and Rust, so I may not accept PRs for now unless
+they're smaller things like bug fixes.
 
 # Todos
 
