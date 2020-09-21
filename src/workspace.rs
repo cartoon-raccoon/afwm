@@ -1,4 +1,4 @@
-use crate::layout::{floating, tiling, LayoutType};
+use crate::layout::{floating, LayoutType};
 use crate::screen::Screen;
 use crate::windows::Windows;
 use crate::x::{XConn, XWindow};
@@ -53,23 +53,9 @@ impl Workspace {
                 self._window_focus_cycle = floating::window_focus_cycle;
                 self._window_close_focused = floating::window_close_focused;
             },
-
-            LayoutType::Tiling => {
-                outlog::debug!("Switching to layout: tiling");
-                self._activate = floating::activate;
-                self._deactivate = floating::deactivate;
-                self._window_add = floating::window_add;
-                self._window_del = floating::window_del;
-                self._window_focus = floating::window_focus;
-                self._window_focus_idx = floating::window_focus_idx;
-                self._window_focus_cycle = floating::window_focus_cycle;
-                self._window_close_focused = floating::window_close_focused;
-
-                // Lay things out as they should be
-                tiling::perform_layout(self, conn, screen);
-            },
         }
     }
+
     pub fn activate(&mut self, conn: &XConn, screen: &Screen) {
         outlog::debug!("Activating workspace");
         (self._activate)(self, conn, screen);

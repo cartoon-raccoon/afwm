@@ -72,7 +72,6 @@ pub const KEYBINDS: &[(xcb::ModMask, xcb::Keysym, fn(&mut WM))] = &[
     (MODKEY|xproto::MOD_MASK_SHIFT, keysym::XK_Right, |wm|{ send_window_from_workspace_to(wm, wm.desktop.index_next()) } ),
 
     // Set current workspace window layout
-    (MODKEY|xproto::MOD_MASK_SHIFT, keysym::XK_t, |wm|{ wm.desktop.current_mut().set_layout(&wm.conn, &wm.screen, LayoutType::Tiling) } ),
     (MODKEY|xproto::MOD_MASK_SHIFT, keysym::XK_f, |wm|{ wm.desktop.current_mut().set_layout(&wm.conn, &wm.screen, LayoutType::Floating) } ),
 ];
 

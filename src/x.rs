@@ -250,30 +250,13 @@ impl<'a> XConn<'a> {
         // Value vector we use at end
         let mut values: Vec<(u16, u32)> = Vec::new();
 
-        // Has CONFIG_WINDOW_X mask, add to values
-        if xcb::CONFIG_WINDOW_X as u16 & event.value_mask() != 0 {
-            values.push((xcb::CONFIG_WINDOW_X as u16, event.x() as u32));
-        }
-
-        // Has CONFIG_WINDOW_Y mask, add to values
-        if xcb::CONFIG_WINDOW_Y as u16 & event.value_mask() != 0 {
-            values.push((xcb::CONFIG_WINDOW_Y as u16, event.y() as u32));
-        }
-
-        // Has CONFIG_WINDOW_WIDTH mask, add to values
-        if xcb::CONFIG_WINDOW_WIDTH as u16 & event.value_mask() != 0 {
-            values.push((xcb::CONFIG_WINDOW_WIDTH as u16, event.width() as u32));
-        }
-
-        // Has CONFIG_WINDOW_HEIGHT mask, add to values
-        if xcb::CONFIG_WINDOW_HEIGHT as u16 & event.value_mask() != 0 {
-            values.push((xcb::CONFIG_WINDOW_HEIGHT as u16, event.height() as u32));
-        }
-
-        // Has CONFIG_WINDOW_SIBLING mask, add to values
-        if xcb::CONFIG_WINDOW_SIBLING as u16 & event.value_mask() != 0 {
-            values.push((xcb::CONFIG_WINDOW_SIBLING as u16, event.sibling() as u32));
-        }
+        // Set values we can find masks for
+        if xcb::CONFIG_WINDOW_X as u16 & event.value_mask()          != 0 { values.push((xcb::CONFIG_WINDOW_X as u16, event.x() as u32)); }
+        if xcb::CONFIG_WINDOW_Y as u16 & event.value_mask()          != 0 { values.push((xcb::CONFIG_WINDOW_Y as u16, event.y() as u32)); }
+        if xcb::CONFIG_WINDOW_WIDTH as u16 & event.value_mask()      != 0 { values.push((xcb::CONFIG_WINDOW_WIDTH as u16, event.width() as u32)); }
+        if xcb::CONFIG_WINDOW_HEIGHT as u16 & event.value_mask()     != 0 { values.push((xcb::CONFIG_WINDOW_HEIGHT as u16, event.height() as u32)); }
+        if xcb::CONFIG_WINDOW_SIBLING as u16 & event.value_mask()    != 0 { values.push((xcb::CONFIG_WINDOW_SIBLING as u16, event.sibling() as u32)); }
+        if xcb::CONFIG_WINDOW_STACK_MODE as u16 & event.value_mask() != 0 { values.push((xcb::CONFIG_WINDOW_STACK_MODE as u16, event.stack_mode() as u32)) }
 
         // Configure window using filtered values
         xcb::configure_window(&self.conn, event.window(), &values);
@@ -285,12 +268,6 @@ impl<'a> XConn<'a> {
     fn on_map_request(&self, event: &xcb::MapRequestEvent) -> Option<Event> {
         // Log this!
         outlog::debug!("on_map_request: {}", event.window());
-
-        // Set child mask
-        //if xcb::change_window_attributes_checked(&self.conn, event.window(), &[(xcb::CW_EVENT_MASK, CHILD_EVENT_MASK)]).request_check().is_err() {
-        //    outlog::warn!("Failed setting map requested window ({}) attributes. Has it been unmapped too quickly?", event.window());
-        //    return None;
-        //}
 
         // Return new MapRequest Event
         return Some(Event::MapRequest(event.window()));
