@@ -20,8 +20,6 @@ they're smaller things like bug fixes.
 
 - fix full screen windows breaking EVERYTHING
 
-- fix some windows unable to be moved/resized
-
 - window cycle when highlighting over some ignores them during shuffle
   (because on MOD key press it refocuses then performs focus change again)
 
