@@ -13,12 +13,7 @@ pub fn values_configure_resize(width: u32, height: u32) -> [(u16, u32); 2] {
 
 pub fn values_configure_geometry(x: u32, y: u32, width: u32, height: u32) -> [(u16, u32); 4] {
     outlog::debug!("VALUES: configure geometry");
-    return [
-        (xcb::CONFIG_WINDOW_X as u16, x),
-        (xcb::CONFIG_WINDOW_Y as u16, y),
-        (xcb::CONFIG_WINDOW_WIDTH as u16, width),
-        (xcb::CONFIG_WINDOW_HEIGHT as u16, height),
-    ];
+    return [ (xcb::CONFIG_WINDOW_X as u16, x), (xcb::CONFIG_WINDOW_Y as u16, y), (xcb::CONFIG_WINDOW_WIDTH as u16, width), (xcb::CONFIG_WINDOW_HEIGHT as u16, height) ];
 }
 
 pub fn values_configure_stack_above() -> [(u16, u32); 1] {
@@ -38,7 +33,7 @@ pub fn values_attributes_root() -> [(u32, u32); 1] {
 
 pub fn values_attributes_child_events() -> [(u32, u32); 1] {
     outlog::debug!("VALUES: attributes child events");
-    return [(xcb::CW_EVENT_MASK, xcb::EVENT_MASK_ENTER_WINDOW)];
+    return [(xcb::CW_EVENT_MASK, xcb::EVENT_MASK_ENTER_WINDOW|xcb::EVENT_MASK_SUBSTRUCTURE_NOTIFY)];
 }
 
 pub fn values_attributes_no_events() -> [(u32, u32); 1] {

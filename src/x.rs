@@ -1,4 +1,3 @@
-use crate::config::MODKEY;
 use crate::cursor::{CoreCursor, CursorIndex};
 use crate::event::{Event, KeyEvent, MouseButton};
 use crate::helper;
