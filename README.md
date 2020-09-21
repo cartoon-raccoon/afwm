@@ -4,7 +4,7 @@ Accronym TBD.
 
 If you're wondering why any of this then look -- `afwm [-y|--why]`
 
-LOC count (according to `loc` tool): `988`
+LOC count (according to `loc` tool): `1138`
 
 I am Rust noob. I have never touched X before this. Pls go easy on my
 fragile existence.
