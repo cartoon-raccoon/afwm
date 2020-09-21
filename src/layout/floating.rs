@@ -31,6 +31,9 @@ pub fn window_add(ws: &mut Workspace, conn: &XConn, screen: &Screen, window_id: 
     // Internally add
     ws.windows.add(Window::from(window_id));
 
+    // Set the window to the start of the screen
+    conn.configure_window(window_id, &helper::values_configure_move(screen.x as u32, screen.y as u32));
+
     // Tell X to map and focus the window
     conn.map_window(window_id);
     conn.set_input_focus(window_id);

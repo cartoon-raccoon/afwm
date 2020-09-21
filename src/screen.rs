@@ -10,8 +10,6 @@ pub struct Screen {
 
     pub idx: i32,
     root_id: xcb::Window,
-
-//    bar: i32,
 }
 
 impl XWindow for Screen {
@@ -21,9 +19,9 @@ impl XWindow for Screen {
 
     fn set(&mut self, x: i32, y: i32, width: i32, height: i32) {
         self.x = x;
-        self.y = y;
+        self.y = y + (BAR_SIZE as i32);
         self.width = width; 
-        self.height = height;
+        self.height = height - (BAR_SIZE as i32);
     }
 }
 
@@ -38,8 +36,6 @@ impl Screen {
 
             idx: screen_idx,
             root_id: root_id,
-
-//            bar: BAR_SIZE as i32,
         }
     }
 }
