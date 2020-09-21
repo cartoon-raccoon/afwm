@@ -21,6 +21,8 @@ Keepin' it simple.
 
 # Todos
 
+- randr support
+
 - tiling mode
   - window gaps in tiling mode
 
