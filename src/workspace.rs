@@ -24,6 +24,12 @@ pub struct Workspace {
     //
     // And as it turns out, having these functions implemented as separate modules under
     // src/layout/__.rs is still surprisingly neat :)
+    //
+    // The other alternative would be having only one interchangeable function e.g.
+    // _layout_windows(). Which would simplify the implementation, but reduces performance
+    // as it means performing a full re-layout on every single window change.
+    //
+    // If you're reading this and you have more ideas please do let me know, I'm open to them :p
     _activate:             fn(&mut Workspace, &XConn, &Screen),
     _deactivate:           fn(&mut Workspace, &XConn),
     _window_add:           fn(&mut Workspace, &XConn, &Screen, xcb::Window),
