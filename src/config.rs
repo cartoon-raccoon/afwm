@@ -1,6 +1,7 @@
 use crate::layout::LayoutType;
 use crate::windows::Window;
 use crate::wm::WM;
+use crate::x::XWindow;
 
 use std::process::Command;
 use std::thread;
@@ -36,7 +37,7 @@ pub const KEYBINDS: &[(xcb::ModMask, xcb::Keysym, fn(&mut WM))] = &[
     (MODKEY|xproto::MOD_MASK_SHIFT, keysym::XK_Return, |_|{ run(&["urxvt-launch"]) }),
 
     // Close focused window
-    (MODKEY|xproto::MOD_MASK_SHIFT, keysym::XK_c, |wm|{ wm.desktop.current_mut().window_close_focused(&wm.conn, &wm.screen) }),
+    (MODKEY|xproto::MOD_MASK_SHIFT, keysym::XK_c, |wm|{ close_focused_window(wm) }),
 
     // Kill window manager
     (MODKEY|xproto::MOD_MASK_SHIFT, keysym::XK_q, |wm|{ wm.kill() }),
@@ -73,6 +74,13 @@ pub const KEYBINDS: &[(xcb::ModMask, xcb::Keysym, fn(&mut WM))] = &[
     // Set current workspace window layout
     (MODKEY|xproto::MOD_MASK_SHIFT, keysym::XK_f, |wm|{ wm.desktop.current_mut().set_layout(&wm.conn, &wm.screen, LayoutType::Floating) } ),
 ];
+
+// If there is a currently focused window, send a destroy command via X
+fn close_focused_window(wm: &mut WM) {
+    if let Some(focused) = wm.desktop.current_mut().windows.focused() {
+        wm.conn.destroy_window(focused.id());
+    }
+}
 
 // If there is a currently focused window, sends from current workspace to workspace at index
 fn send_window_from_workspace_to(wm: &mut WM, idx: usize) {

@@ -136,6 +136,17 @@ impl Windows {
         return self.windows.get_mut(idx);
     }
 
+    pub fn contains(&self, window_id: xcb::Window) -> Option<usize> {
+        let mut idx: usize = 0;
+        for window in self.windows.iter() {
+            if window.id == window_id {
+                return Some(idx);
+            }
+            idx += 1;
+        }
+        return None;
+    }
+
     pub fn is_focused(&self, window_id: xcb::Window) -> bool {
         match self.focused() {
             Some(window) => return window_id == window.id,

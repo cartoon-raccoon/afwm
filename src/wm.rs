@@ -112,14 +112,7 @@ impl<'a> WM<'a> {
                     }
                 },
 
-                Event::UnmapNotify(window_id) => {
-                    // Remove window (if there!)
-                    if let Some((ws, idx)) = self.desktop.contains_mut(window_id) {
-                        ws.window_del(&self.conn, &self.screen, idx, window_id);
-                    }
-                },
-
-                Event::DestroyNotify(window_id) => {
+                Event::DestroyNotify(window_id) | Event::UnmapNotify(window_id) => {
                     // Remove window (if there!)
                     if let Some((ws, idx)) = self.desktop.contains_mut(window_id) {
                         ws.window_del(&self.conn, &self.screen, idx, window_id);
@@ -127,16 +120,15 @@ impl<'a> WM<'a> {
                 },
 
                 Event::EnterNotify(window_id) => {
-                    // Focus input to this window
-                    self.conn.set_input_focus(window_id);
+                    // If window in current workspace, focus!
+                    if self.desktop.current().windows.contains(window_id).is_some() {
+                        self.conn.set_input_focus(window_id);
+                    } else {
+                        warn!("Received enter notify event for non-tracked window: {}", window_id);
+                    }
                 },
 
                 Event::MotionNotify((px, py)) => {
-                    // If no tracked windows, nothing to do
-                    if self.desktop.current().windows.is_empty() {
-                        continue;
-                    }
-
                     // Calculate dx, dy
                     let dx = (px - self.last_mouse_x) as i32;
                     let dy = (py - self.last_mouse_y) as i32;
@@ -149,15 +141,19 @@ impl<'a> WM<'a> {
                     match self.mouse_mode {
                         MouseMode::Move => {
                             // Move currently focused window
-                            self.desktop.current_mut().windows.focused_mut().unwrap().do_move(&self.conn, &self.screen, dx, dy);
+                            if let Some(focused) = self.desktop.current_mut().windows.focused_mut() {
+                                focused.do_move(&self.conn, &self.screen, dx, dy);
+                            }
                         },
 
                         MouseMode::Resize => {
                             // Resize currently focused window
-                            self.desktop.current_mut().windows.focused_mut().unwrap().do_resize(&self.conn, &self.screen, dx, dy);
+                            if let Some(focused) = self.desktop.current_mut().windows.focused_mut() {
+                                focused.do_resize(&self.conn, &self.screen, dx, dy);
+                            }
                         },
 
-                        MouseMode::Ground => fatal!("MouseMode::Ground state registered in MotionNotify"),
+                        _ => {},
                     }
                 },
 
@@ -179,11 +175,6 @@ impl<'a> WM<'a> {
                 },
 
                 Event::ButtonPress(((px, py), but, window_id)) => {
-                    // If no windows, nothing to do
-                    if self.desktop.current().windows.is_empty() {
-                        continue;
-                    }
-
                     // Set current mouse position
                     self.last_mouse_x = px;
                     self.last_mouse_y = py;
@@ -216,11 +207,6 @@ impl<'a> WM<'a> {
 
                     // Ungrab pointer
                     self.conn.ungrab_pointer();
-
-                    // Reset all visible window masks
-                    for window in self.desktop.current().windows.iter() {
-                        self.conn.change_window_attributes(window.id(), &helper::values_attributes_child_events());
-                    }
                 },
             }
         }

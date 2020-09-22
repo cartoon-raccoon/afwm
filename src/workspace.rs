@@ -37,7 +37,6 @@ pub struct Workspace {
     _window_focus:         fn(&mut Workspace, &XConn, &Screen, xcb::Window),
     _window_focus_idx:     fn(&mut Workspace, &XConn, &Screen, usize),
     _window_focus_cycle:   fn(&mut Workspace, &XConn, &Screen),
-    _window_close_focused: fn(&mut Workspace, &XConn, &Screen),
 }
 
 impl Default for Workspace {
@@ -53,7 +52,6 @@ impl Default for Workspace {
             _window_focus: floating::window_focus,
             _window_focus_idx: floating::window_focus_idx,
             _window_focus_cycle: floating::window_focus_cycle,
-            _window_close_focused: floating::window_close_focused,
         }
     }
 }
@@ -70,7 +68,6 @@ impl Workspace {
                 self._window_focus = floating::window_focus;
                 self._window_focus_idx = floating::window_focus_idx;
                 self._window_focus_cycle = floating::window_focus_cycle;
-                self._window_close_focused = floating::window_close_focused;
             },
         }
     }
@@ -123,11 +120,6 @@ impl Workspace {
     pub fn window_focus_cycle(&mut self, conn: &XConn, screen: &Screen) {
         debug!("Cycling focused window");
         (self._window_focus_cycle)(self, conn, screen);
-    }
-
-    pub fn window_close_focused(&mut self, conn: &XConn, screen: &Screen) {
-        debug!("Closing focused window");
-        (self._window_close_focused)(self, conn, screen);
     }
 
     pub fn is_active(&self) -> bool {

@@ -10,10 +10,16 @@ pub fn activate(ws: &mut Workspace, conn: &XConn, screen: &Screen) {
         return;
     }
 
-    // Map the windows in the workspace in reverse order and grab their geometry
+    // Iterate windows
     for window in ws.windows.iter_rev_mut() {
+        // Disable events before mapping the window
+        conn.change_window_attributes(window.id(), &helper::values_attributes_no_events());
+
+        // Map the window back to the display
         conn.map_window(window.id());
-        conn.update_geometry(window);
+
+        // Enable child events again
+        conn.change_window_attributes(window.id(), &helper::values_attributes_child_events());
     }
 
     // Tell X to focus our focused window
@@ -21,9 +27,16 @@ pub fn activate(ws: &mut Workspace, conn: &XConn, screen: &Screen) {
 }
 
 pub fn deactivate(ws: &mut Workspace, conn: &XConn) {
-    // Unmap all the windows
+    // Iterate windows
     for window in ws.windows.iter() {
+        // Disable events before unmapping the window
+        conn.change_window_attributes(window.id(), &helper::values_attributes_no_events());
+
+        // Unmap the window
         conn.unmap_window(window.id());
+
+        // Enable events again
+        conn.change_window_attributes(window.id(), &helper::values_attributes_child_events());
     }
 }
 
@@ -38,7 +51,7 @@ pub fn window_add(ws: &mut Workspace, conn: &XConn, screen: &Screen, window_id: 
     conn.map_window(window_id);
     conn.set_input_focus(window_id);
 
-    // Set child window mask
+    // Start tracking events for this window
     conn.change_window_attributes(window_id, &helper::values_attributes_child_events());
 
     // Update the window geometry
@@ -48,6 +61,9 @@ pub fn window_add(ws: &mut Workspace, conn: &XConn, screen: &Screen, window_id: 
 pub fn window_del(ws: &mut Workspace, conn: &XConn, screen: &Screen, idx: usize, window_id: xcb::Window) {
     // Internally remove window at position
     ws.windows.remove(idx);
+
+    // Stop tracking events for this window
+    conn.change_window_attributes(window_id, &helper::values_attributes_no_events());
 
     // Tell X to unmap the window
     conn.unmap_window(window_id);
@@ -66,11 +82,17 @@ pub fn window_focus(ws: &mut Workspace, conn: &XConn, screen: &Screen, window_id
         ws.windows.remove(idx);
         ws.windows.add(window);
 
+        // Disable event tracking before making changes
+        conn.change_window_attributes(window.id(), &helper::values_attributes_no_events());
+
         // Set window ontop
         conn.configure_window(window_id, &helper::values_configure_stack_above());
 
         // Tell X to focus the window
         conn.set_input_focus(window_id);
+
+        // Enable event tracking again
+        conn.change_window_attributes(window.id(), &helper::values_attributes_child_events());
     }
 }
 
@@ -84,11 +106,17 @@ pub fn window_focus_idx(ws: &mut Workspace, conn: &XConn, screen: &Screen, idx: 
         ws.windows.remove(idx);
         ws.windows.add(window);
 
+        // Disable event tracking before making changes
+        conn.change_window_attributes(window.id(), &helper::values_attributes_no_events());
+
         // Set window ontop
         conn.configure_window(window.id(), &helper::values_configure_stack_above());
 
         // Tell X to focus the window
         conn.set_input_focus(window.id());
+
+        // Enable event tracking again
+        conn.change_window_attributes(window.id(), &helper::values_attributes_child_events());
     }
 }
 
@@ -103,14 +131,4 @@ pub fn window_focus_cycle(ws: &mut Workspace, conn: &XConn, screen: &Screen) {
 
     // Focus last window
     ws.window_focus_idx(conn, screen, len-1);
-}
-
-pub fn window_close_focused(ws: &mut Workspace, conn: &XConn, screen: &Screen) {
-    // Log
-    debug!("Closing focused window in workspace");
-
-    // If there is a focused window, close
-    if let Some(window) = ws.windows.focused() {
-        conn.destroy_window(window.id());
-    }
 }
