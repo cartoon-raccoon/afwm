@@ -1,3 +1,6 @@
+#[macro_use]
+mod log;
+
 mod config;
 mod desktop;
 mod event;
@@ -60,16 +63,13 @@ fn main() {
         }
     }
 
-    // Initialize logging
-    outlog::init_with_default().expect("Failed to initialize logging");
-
     // Register OS signals
     unsafe { signal_hook::register(signal_hook::SIGINT|signal_hook::SIGTERM, || { panic!("OS Signal received!") }).expect("Failed to register OS signal receiver"); }
-    outlog::debug!("Registered OS signal hook");
+    debug!("Registered OS signal hook");
 
     // Try connect to xserver
     let (conn, screen_idx) = xcb::Connection::connect(None).expect("Failed to connect to xserver");
-    outlog::info!("Connected to X server");
+    debug!("Connected to X server");
 
     // Create new window manager object
     let mut wm = WM::register(&conn, screen_idx);

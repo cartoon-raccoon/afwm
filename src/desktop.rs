@@ -31,7 +31,7 @@ impl Desktop {
 
     pub fn goto(&mut self, conn: &XConn, screen: &Screen, idx: usize) {
         // Log
-        outlog::debug!("Goto workspace: {}", idx);
+        debug!("Goto workspace: {}", idx);
 
         // Deactivate current selected workspace
         self.workspaces.get_mut(self.idx).unwrap().deactivate(conn);

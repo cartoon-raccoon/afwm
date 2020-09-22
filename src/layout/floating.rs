@@ -107,7 +107,7 @@ pub fn window_focus_cycle(ws: &mut Workspace, conn: &XConn, screen: &Screen) {
 
 pub fn window_close_focused(ws: &mut Workspace, conn: &XConn, screen: &Screen) {
     // Log
-    outlog::debug!("Closing focused window in workspace");
+    debug!("Closing focused window in workspace");
 
     // If there is a focused window, close
     if let Some(window) = ws.windows.focused() {

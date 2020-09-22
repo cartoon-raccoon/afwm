@@ -55,60 +55,60 @@ impl<'a> XConn<'a> {
     }
 
     pub fn get_setup(&self) -> xcb::Setup {
-        outlog::debug!("Getting setup");
+        debug!("Getting setup");
         return self.conn.get_setup();
     }
 
     pub fn query_tree(&self, window_id: xcb::Window) -> Vec<xcb::Window> {
-        outlog::debug!("Querying tree for window: {}", window_id);
+        debug!("Querying tree for window: {}", window_id);
         let reply = xcb::query_tree(&self.conn, window_id).get_reply().expect("Querying window tree");
         return reply.children().iter().map(|w| { *w }).collect();
     }
 
     pub fn map_window(&self, window_id: xcb::Window) {
-        outlog::debug!("Mapping window: {}", window_id);
+        debug!("Mapping window: {}", window_id);
         xcb::map_window(self.conn, window_id);
     }
 
     pub fn unmap_window(&self, window_id: xcb::Window) {
-        outlog::debug!("Unmapping window: {}", window_id);
+        debug!("Unmapping window: {}", window_id);
         xcb::unmap_window(self.conn, window_id);
     }
 
     pub fn configure_window(&self, window_id: xcb::Window, values: &[(u16, u32)]) {
-        outlog::debug!("Configuring window: {}", window_id);
+        debug!("Configuring window: {}", window_id);
         xcb::configure_window(self.conn, window_id, values);
     }
 
     pub fn change_window_attributes(&self, window_id: xcb::Window, values: &[(u32, u32)]) {
-        outlog::debug!("Changing window attributes: {}", window_id);
+        debug!("Changing window attributes: {}", window_id);
         xcb::change_window_attributes(self.conn, window_id, values);
     }
 
     pub fn change_window_attributes_checked(&self, window_id: xcb::Window, values: &[(u32, u32)]) {
-        outlog::debug!("Changing window attributes: {}", window_id);
+        debug!("Changing window attributes: {}", window_id);
         xcb::change_window_attributes_checked(self.conn, window_id, values).request_check().expect("Changing window attributes");
     }
 
     pub fn set_input_focus(&self, window_id: xcb::Window) {
-        outlog::debug!("Setting input focus window: {}", window_id);
+        debug!("Setting input focus window: {}", window_id);
         xcb::set_input_focus(self.conn, xcb::INPUT_FOCUS_POINTER_ROOT as u8, window_id, xcb::CURRENT_TIME);
     }
 
     pub fn destroy_window(&self, window_id: xcb::Window) {
-        outlog::debug!("Destroying window: {}", window_id);
+        debug!("Destroying window: {}", window_id);
         xcb::destroy_window(self.conn, window_id);
     }
 
     pub fn grab_key(&self, window_id: xcb::Window, mask: xcb::ModMask, keysym: xcb::Keysym, confine: bool) {
-        outlog::debug!("Grabbing key with mask:{} sym:{} for window: {}", mask, keysym, window_id);
+        debug!("Grabbing key with mask:{} sym:{} for window: {}", mask, keysym, window_id);
 
         // Get code iter for keysym
         let code = self.key_syms.get_keycode(keysym).next();
 
         // If no code, log and move-on. Else, unwrap
         if code.is_none() {
-            outlog::warn!("Keysym {} translated to zero-length keycode iter, not grabbing", keysym);
+            warn!("Keysym {} translated to zero-length keycode iter, not grabbing", keysym);
             return;
         }
         let code = code.unwrap();
@@ -126,7 +126,7 @@ impl<'a> XConn<'a> {
     }
 
     pub fn grab_button(&self, window_id: xcb::Window, mask: xcb::ButtonMask, button: xcb::ButtonIndex, modmask: xcb::ModMask, confine: bool) {
-        outlog::debug!("Grabbing button {} for window: {}", window_id, button);
+        debug!("Grabbing button {} for window: {}", window_id, button);
         xcb::grab_button(
             self.conn,
             false,                                       // owner events (a.k. don't pass on events to root window)
@@ -142,7 +142,7 @@ impl<'a> XConn<'a> {
     }
 
     pub fn grab_pointer(&self, window_id: xcb::Window, mask: xcb::EventMask, confine: bool) {
-        outlog::debug!("Grabbing pointer for window: {}", window_id);
+        debug!("Grabbing pointer for window: {}", window_id);
         xcb::grab_pointer(
             self.conn,
             false,                                       // owner events (a.k. don't pass on events to root window)
@@ -157,7 +157,7 @@ impl<'a> XConn<'a> {
     }
 
     pub fn ungrab_pointer(&self) {
-        outlog::debug!("Ungrabbing pointer");
+        debug!("Ungrabbing pointer");
         xcb::ungrab_pointer(self.conn, xcb::CURRENT_TIME);
     }
 
@@ -174,18 +174,18 @@ impl<'a> XConn<'a> {
     }
 
     pub fn get_geometry(&self, window_id: xcb::Window) -> Option<(i32, i32, i32, i32)> {
-        outlog::debug!("Getting geometry for window: {}", window_id);
+        debug!("Getting geometry for window: {}", window_id);
         match xcb::get_geometry(self.conn, window_id).get_reply() {
             Ok(dimens) => return Some((dimens.x() as i32, dimens.y() as i32, dimens.width() as i32, dimens.height() as i32)),
             Err(_) => {
-                outlog::warn!("Failed getting window geometry for {}. Was window destroyed and not yet unmapped?", window_id);
+                warn!("Failed getting window geometry for {}. Was window destroyed and not yet unmapped?", window_id);
                 return None;
             },
         }
     }
 
     pub fn query_pointer(&self, window_id: xcb::Window) -> (i32, i32, xcb::Window) {
-        outlog::debug!("Querying pointer location for window: {}", window_id);
+        debug!("Querying pointer location for window: {}", window_id);
         let pointer = xcb::query_pointer(self.conn, window_id).get_reply().expect("Querying window pointer location");
         return (pointer.root_x() as i32, pointer.root_y() as i32, pointer.child())
     }
@@ -231,7 +231,7 @@ impl<'a> XConn<'a> {
     }
 
     fn on_configure_request(&self, event: &xcb::ConfigureRequestEvent) -> Option<Event> {
-        outlog::debug!("on_configure_request");
+        debug!("on_configure_request");
 
         // Value vector we use at end
         let mut values: Vec<(u16, u32)> = Vec::new();
@@ -253,7 +253,7 @@ impl<'a> XConn<'a> {
 
     fn on_map_request(&self, event: &xcb::MapRequestEvent) -> Option<Event> {
         // Log this!
-        outlog::debug!("on_map_request: {}", event.window());
+        debug!("on_map_request: {}", event.window());
 
         // Return new MapRequest Event
         return Some(Event::MapRequest(event.window()));
@@ -261,7 +261,7 @@ impl<'a> XConn<'a> {
 
     fn on_unmap_notify(&self, event: &xcb::UnmapNotifyEvent) -> Option<Event> {
         // Log this!
-        outlog::debug!("on_unmap_notify: {}", event.window());
+        debug!("on_unmap_notify: {}", event.window());
 
         // Return new UnmapNotify Event
         return Some(Event::UnmapNotify(event.window()));
@@ -269,7 +269,7 @@ impl<'a> XConn<'a> {
 
     fn on_destroy_notify(&self, event: &xcb::DestroyNotifyEvent) -> Option<Event> {
         // Log this!
-        outlog::debug!("on_destroy_notify: {}", event.window());
+        debug!("on_destroy_notify: {}", event.window());
 
         // Return new DestroyNotify Event
         return Some(Event::DestroyNotify(event.window()));
@@ -277,7 +277,7 @@ impl<'a> XConn<'a> {
 
     fn on_enter_notify(&self, event: &xcb::EnterNotifyEvent) -> Option<Event> {
         // Log this!
-        outlog::debug!("on_enter_notify: {}", event.event());
+        debug!("on_enter_notify: {}", event.event());
 
         // Return new EnterNotify Event
         return Some(Event::EnterNotify(event.event()));
@@ -290,7 +290,7 @@ impl<'a> XConn<'a> {
         }
 
         // Log this!
-        outlog::debug!("on_motion_notify: {}", event.child());
+        debug!("on_motion_notify: {}", event.child());
 
         // Return new MotionNotify Event
         return Some(Event::MotionNotify((event.root_x() as i32, event.root_y() as i32)));
@@ -307,7 +307,7 @@ impl<'a> XConn<'a> {
         };
 
         // Log this!
-        outlog::debug!("on_key_press: {} {}", key_ev.mask, key_ev.key);
+        debug!("on_key_press: {} {}", key_ev.mask, key_ev.key);
 
         // Return KeyPress Event
         return Some(Event::KeyPress((key_ev, event.child())));
@@ -323,19 +323,19 @@ impl<'a> XConn<'a> {
         let tuple = match event.detail() as u32 {
             // Left click
             xcb::BUTTON_INDEX_1 => {
-                outlog::debug!("on_button_press: mouse left click");
+                debug!("on_button_press: mouse left click");
                 Event::ButtonPress(((event.root_x() as i32, event.root_y() as i32), MouseButton::LeftClick, event.child()))
             }
 
             // Right click
             xcb::BUTTON_INDEX_3 => {
-                outlog::debug!("on_button_press: mouse right click");
+                debug!("on_button_press: mouse right click");
                 Event::ButtonPress(((event.root_x() as i32, event.root_y() as i32), MouseButton::RightClick, event.child()))
             }
 
             // Invalid button press, return nothing
             _ => {
-                outlog::debug!("on_button_press: unhandled button");
+                debug!("on_button_press: unhandled button");
                 return None;
             },
         };
@@ -354,19 +354,19 @@ impl<'a> XConn<'a> {
         let ev = match event.detail() as u32 {
             // Left click
             xcb::BUTTON_INDEX_1 => {
-                outlog::debug!("on_button_release: mouse left click");
+                debug!("on_button_release: mouse left click");
                 Event::ButtonRelease(MouseButton::LeftClick)
             }
 
             // Right click
             xcb::BUTTON_INDEX_3 => {
-                outlog::debug!("on_button_release: mouse right click");
+                debug!("on_button_release: mouse right click");
                 Event::ButtonRelease(MouseButton::RightClick)
             }
 
             // Invalid button press, return nothing
             b => {
-                outlog::debug!("on_button_release: unhandled button {}", b);
+                debug!("on_button_release: unhandled button {}", b);
                 return None;
             },
         };

@@ -92,7 +92,7 @@ fn run(args: &'static [&str]) {
 // Execute an argument array as child
 fn execute(args: &[&str]) {
     // Log
-    outlog::debug!("Running command: {:?}", args);
+    debug!("Running command: {:?}", args);
 
     // Create new Command object
     let mut cmd = Command::new(args[0]);
@@ -103,9 +103,9 @@ fn execute(args: &[&str]) {
     // Execute!
     match cmd.status() {
         // Executed and returned exit status. Log returned status
-        Ok(status) => outlog::debug!("{:?}: exited with {}", args, status),
+        Ok(status) => debug!("{:?}: exited with {}", args, status),
 
         // Did not execute. Log returned error
-        Err(err) => outlog::warn!("{:?}: {}", args, err),
+        Err(err) => warn!("{:?}: {}", args, err),
     }
 }

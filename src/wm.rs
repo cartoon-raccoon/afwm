@@ -76,7 +76,7 @@ impl<'a> WM<'a> {
     }
 
     pub fn run(&mut self) {
-        outlog::info!("Started running");
+        info!("Started running");
 
         while self.running {
             // Get next event
@@ -87,15 +87,15 @@ impl<'a> WM<'a> {
                 Event::ConfigureRequest(((x, y, width, height), window_id)) => {
                     if window_id == self.screen.id() {
                         // If this is the root window, update the screen
-                        outlog::debug!("Received updated root window geometry");
+                        debug!("Received updated root window geometry");
                         self.screen.set(x, y, width, height);
                     } else {
                         // Else try update window geometry in our collection
                         if let Some((ws, idx)) = self.desktop.contains_mut(window_id) {
-                            outlog::debug!("Updating child window geometry");
+                            debug!("Updating child window geometry");
                             ws.windows.get_mut(idx).unwrap().set(x, y, width, height);
                         } else {
-                            outlog::warn!("Recieved configure request event for non-tracked window: {}", window_id);
+                            warn!("Recieved configure request event for non-tracked window: {}", window_id);
                         }
                     }
                 },
@@ -157,7 +157,7 @@ impl<'a> WM<'a> {
                             self.desktop.current_mut().windows.focused_mut().unwrap().do_resize(&self.conn, &self.screen, dx, dy);
                         },
 
-                        MouseMode::Ground => panic!("MouseMode::Ground state registered in MotionNotify"),
+                        MouseMode::Ground => fatal!("MouseMode::Ground state registered in MotionNotify"),
                     }
                 },
 
@@ -225,11 +225,11 @@ impl<'a> WM<'a> {
             }
         }
 
-        outlog::info!("Finished running");
+        info!("Finished running");
     }
 
     pub fn kill(&mut self) {
-        outlog::info!("Killing");
+        info!("Killing");
         self.running = false;
     }
 }

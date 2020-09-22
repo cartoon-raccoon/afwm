@@ -43,7 +43,7 @@ impl Workspace {
     pub fn set_layout(&mut self, conn: &XConn, screen: &Screen, t: LayoutType) {
         match t {
             LayoutType::Floating => {
-                outlog::debug!("Switching to layout: floating");
+                debug!("Switching to layout: floating");
                 self._activate = floating::activate;
                 self._deactivate = floating::deactivate;
                 self._window_add = floating::window_add;
@@ -57,24 +57,24 @@ impl Workspace {
     }
 
     pub fn activate(&mut self, conn: &XConn, screen: &Screen) {
-        outlog::debug!("Activating workspace");
+        debug!("Activating workspace");
         (self._activate)(self, conn, screen);
         self.active = true;
     }
 
     pub fn deactivate(&mut self, conn: &XConn) {
-        outlog::debug!("Deactivating workspace");
+        debug!("Deactivating workspace");
         (self._deactivate)(self, conn);
         self.active = false;
     }
 
     pub fn window_add(&mut self, conn: &XConn, screen: &Screen, window_id: xcb::Window) {
-        outlog::debug!("Adding window to workspace: {}", window_id);
+        debug!("Adding window to workspace: {}", window_id);
        (self._window_add)(self, conn, screen, window_id);
     }
 
     pub fn window_del(&mut self, conn: &XConn, screen: &Screen, idx: usize, window_id: xcb::Window) {
-        outlog::debug!("Deleting window at index {} from workspace: {}", idx, window_id);
+        debug!("Deleting window at index {} from workspace: {}", idx, window_id);
         (self._window_del)(self, conn, screen, idx, window_id);
     }
 
@@ -92,22 +92,22 @@ impl Workspace {
     }
 
     pub fn window_focus(&mut self, conn: &XConn, screen: &Screen, window_id: xcb::Window) {
-        outlog::debug!("Focusing window in workspace: {}", window_id);
+        debug!("Focusing window in workspace: {}", window_id);
         (self._window_focus)(self, conn, screen, window_id);
     }
 
     pub fn window_focus_idx(&mut self, conn: &XConn, screen: &Screen, idx: usize) {
-        outlog::debug!("Focusing window at index in workspace: {}", idx);
+        debug!("Focusing window at index in workspace: {}", idx);
         (self._window_focus_idx)(self, conn, screen, idx);
     }
 
     pub fn window_focus_cycle(&mut self, conn: &XConn, screen: &Screen) {
-        outlog::debug!("Cycling focused window");
+        debug!("Cycling focused window");
         (self._window_focus_cycle)(self, conn, screen);
     }
 
     pub fn window_close_focused(&mut self, conn: &XConn, screen: &Screen) {
-        outlog::debug!("Closing focused window");
+        debug!("Closing focused window");
         (self._window_close_focused)(self, conn, screen);
     }
 
