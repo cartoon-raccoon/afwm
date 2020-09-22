@@ -36,7 +36,5 @@ Keepin' it simple.
 - status bar with workspace info (dwm-esque)
   - dmenu coloring matching status bar coloring
 
-- window borders (?)
-
 - properly comment (add where missing, fix old comments)
 
