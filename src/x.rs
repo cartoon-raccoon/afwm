@@ -1,8 +1,12 @@
-use crate::cursor::{CoreCursor, CursorIndex};
 use crate::event::{Event, KeyEvent, MouseButton};
 use crate::helper;
 
+use xcb_util::cursor;
 use xcb_util::keysyms::KeySymbols;
+
+pub enum CursorIndex {
+    LeftPtr,
+}
 
 pub trait XWindow {
     fn id(&self) -> xcb::Window;
@@ -14,7 +18,6 @@ pub struct XConn<'a> {
     pub conn: &'a xcb::Connection,
 
     // Stored loaded cursors + optional core cursor font
-    core_cursor_font: Option<u32>,
     cursors: [u32; 1],
 
     // KeySymbol lookup object
@@ -25,38 +28,22 @@ impl<'a> XConn<'a> {
     pub fn new(conn: &'a xcb::Connection) -> Self {
         Self {
             conn:             conn,
-            core_cursor_font: None,
             cursors:          [0; 1],
             key_syms:         KeySymbols::new(conn),
         }
     }
 
-    pub fn create_core_cursor(&mut self, cursor: CursorIndex, core_cursor: CoreCursor) {
-        // Try get core cursor font id, else load it
-        let font_id = if let Some(font_id) = self.core_cursor_font {
-            font_id
-        } else {
-            // Allocate new font id
-            let font_id = self.conn.generate_id();
-
-            // Try open cursor font
-            xcb::open_font_checked(self.conn, font_id, "cursor").request_check().expect("Opening cursor font");
-
-            // Set the core cursor font id
-            self.core_cursor_font = Some(font_id);
-
-            // And return!
-            font_id
-        };
-
-        // Allocate new cursor id
-        let cursor_id = self.conn.generate_id();
-
-        // Create new glyph cursor based on supplied core_cursor
-        xcb::create_glyph_cursor_checked(self.conn, cursor_id, font_id, font_id, core_cursor.value(), core_cursor.mask(), 0, 0, 0, 0, 0, 0).request_check().expect("Creating glyph cursor");
+    pub fn create_core_cursor(&mut self, cursor: CursorIndex, cursor_glyph: u16) {
+        // Try load cursor for supplied cursor glyp
+        let cursor_id = cursor::create_font_cursor_checked(self.conn, cursor::LEFT_PTR).expect("Creating font cursor");
 
         // Store the cursor id in the cursors array at supplied index
         self.cursors[cursor as usize] = cursor_id;
+    }
+
+    pub fn create_pixmap_cursor(&mut self, cursor: CursorIndex) {
+        // Allocate new pixmap id
+        let pixmap_id = self.conn.generate_id();
     }
 
     pub fn set_cursor(&mut self, window_id: xcb::Window, cursor: CursorIndex) {

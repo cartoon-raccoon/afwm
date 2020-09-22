@@ -1,5 +1,4 @@
 mod config;
-mod cursor;
 mod desktop;
 mod event;
 mod helper;
@@ -11,7 +10,6 @@ mod workspace;
 mod x;
 
 use wm::WM;
-use config::KEYBINDS;
 
 use std::env;
 use std::process;

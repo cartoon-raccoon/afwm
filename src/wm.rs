@@ -1,10 +1,11 @@
 use crate::config::{KEYBINDS, MODKEY};
-use crate::cursor::{CoreCursor, CursorIndex};
 use crate::desktop::Desktop;
 use crate::event::{Event, MouseButton};
 use crate::helper;
 use crate::screen::Screen;
-use crate::x::{XConn, XWindow};
+use crate::x::{CursorIndex, XConn, XWindow};
+
+use xcb_util::cursor;
 
 #[derive(PartialEq)]
 enum MouseMode {
@@ -54,10 +55,10 @@ impl<'a> WM<'a> {
         xconn.grab_button(root_id, helper::ROOT_BUTTON_GRAB_MASK, xcb::BUTTON_INDEX_3, MODKEY, true);
 
         // Create necessary core cursors
-        xconn.create_core_cursor(CursorIndex::LeftPointer, CoreCursor::LeftPtr);
+        xconn.create_core_cursor(CursorIndex::LeftPtr, cursor::LEFT_PTR);
 
         // Now set the default starting cursor
-        xconn.set_cursor(root_id, CursorIndex::LeftPointer);
+        xconn.set_cursor(root_id, CursorIndex::LeftPtr);
 
         // Perform initial screen geometry fetch
         xconn.update_geometry(&mut screen);
