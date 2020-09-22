@@ -9,8 +9,7 @@ use xcb::xproto;
 use x11::keysym;
 
 // Geometry
-pub const BAR_SIZE: u16 = 20;
-pub const GAP: u16 = 10;
+pub const BAR_SIZE: u16 = 18;
 
 // Number of workspaces to have
 pub const WORKSPACES: usize = 9;
