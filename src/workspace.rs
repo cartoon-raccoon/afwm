@@ -11,6 +11,19 @@ pub struct Workspace {
     active:  bool,
 
     // Layout functions
+    // You're probably asking yourself, why are we doing it like this? Instead of say,
+    // holding onto an object that implements a Layout trait? Well doing it that way
+    // significantly complicated things in other ways, and doing it this way allows us
+    // to abstract away these methods and changing them on the fly with no performance
+    // penalty unlike other methods e.g.
+    // match self.layout {
+    //     Layout::Tiling => {},
+    //     Layout::Floating => {},
+    //     Layout::SomeOther => {},
+    // }
+    //
+    // And as it turns out, having these functions implemented as separate modules under
+    // src/layout/__.rs is still surprisingly neat :)
     _activate:             fn(&mut Workspace, &XConn, &Screen),
     _deactivate:           fn(&mut Workspace, &XConn),
     _window_add:           fn(&mut Workspace, &XConn, &Screen, xcb::Window),
