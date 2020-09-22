@@ -34,10 +34,9 @@ Keepin' it simple.
   (because on MOD key press it refocuses then performs focus change again)
 
 - status bar with workspace info (dwm-esque)
+  - dmenu coloring matching status bar coloring
 
-- window borders
-
-- dmenu coloring matching status bar coloring
+- window borders (?)
 
 - properly comment (add where missing, fix old comments)
 
