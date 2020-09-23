@@ -16,7 +16,7 @@ pub struct XConn<'a> {
     // X server connection
     pub conn: &'a xcb::Connection,
 
-    // Stored loaded cursors + optional core cursor font
+    // Stored loaded cursor ids
     cursors: [u32; 1],
 
     // KeySymbol lookup object
@@ -182,7 +182,7 @@ impl<'a> XConn<'a> {
         // Get keysym for event
         let keysym = self.key_syms.press_lookup_keysym(event, 0);
 
-        // Create new key object
+        // Create new tuple of (mod_mask, key_sym)
         return (event.state() as u32, keysym);
     }
 
