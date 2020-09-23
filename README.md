@@ -1,40 +1,28 @@
 Super simple X window manager in Rust. Accronym TBD.
 
-If you're wondering why any of this then look -- `afwm [-y|--why]`
+Built around Rust XCB bindings.
 
-LOC count (according to `loc` tool): `944`
+No *full* ICCCM/EWMH support planned, possibly just enought to get by. As
+for why, see: https://raw.githubusercontent.com/kfish/xsel/master/rant.txt
 
 Floating only (for now).
 
 Set your key binds in `src/config.rs`.
 
+Keepin' it simple. LOC count: `944`
+
 ![screenshot](https://github.com/grufwub/afwm/raw/master/screenshot.png)
-
-This is my learning project for both X and Rust, so I may not accept PRs for now unless
-they're smaller things like bug fixes.
-
-Uses Rust bindings for XCB vs the older Xlib.
-
-No ICCCM support, see: https://raw.githubusercontent.com/kfish/xsel/master/rant.txt
-
-No EWMH support.
-
-Keepin' it simple.
 
 # Todos
 
-- randr support
+- add randr support
 
-- tiling mode
-  - window gaps in tiling mode
+- add tiling mode + window gaps in tiling mode
 
-- fix full screen windows breaking EVERYTHING (EDIT: i think this may be the lack of ICCCM/EWMH)
+- add full-screen window support (e.g. games break everything right now)
 
-- window cycle when highlighting over some ignores them during shuffle
-  (because on MOD key press it refocuses then performs focus change again)
+- improve MOD+Tab window cycling
 
-- status bar with workspace info (dwm-esque)
-  - dmenu coloring matching status bar coloring
+- either add status bar with workspace info, or support _some_ EWMH
 
-- properly comment (add where missing, fix old comments)
-
+- fix old code comments (referring to previous versions)
