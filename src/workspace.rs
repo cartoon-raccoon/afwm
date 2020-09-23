@@ -1,6 +1,6 @@
 use crate::layout::{floating, LayoutType};
 use crate::screen::Screen;
-use crate::windows::Windows;
+use crate::windows::{Window, Windows};
 use crate::x::{XConn, XWindow};
 
 pub struct Workspace {
@@ -8,7 +8,7 @@ pub struct Workspace {
     pub windows: Windows,
 
     // Track if Workspace active (on-screen)
-    active:  bool,
+    pub active:  bool,
 
     // Layout functions
     // You're probably asking yourself, why are we doing it like this? Instead of say,
@@ -32,8 +32,8 @@ pub struct Workspace {
     // If you're reading this and you have more ideas please do let me know, I'm open to them :p
     _activate:             fn(&mut Workspace, &XConn, &Screen),
     _deactivate:           fn(&mut Workspace, &XConn),
-    _window_add:           fn(&mut Workspace, &XConn, &Screen, xcb::Window),
-    _window_del:           fn(&mut Workspace, &XConn, &Screen, usize, xcb::Window),
+    _window_add:           fn(&mut Workspace, &XConn, &Screen, Window),
+    _window_del:           fn(&mut Workspace, &XConn, &Screen, usize, xcb::Window) -> Window,
     _window_focus:         fn(&mut Workspace, &XConn, &Screen, xcb::Window),
     _window_focus_idx:     fn(&mut Workspace, &XConn, &Screen, usize),
     _window_focus_cycle:   fn(&mut Workspace, &XConn, &Screen),
@@ -84,17 +84,17 @@ impl Workspace {
         self.active = false;
     }
 
-    pub fn window_add(&mut self, conn: &XConn, screen: &Screen, window_id: xcb::Window) {
-        debug!("Adding window to workspace: {}", window_id);
-       (self._window_add)(self, conn, screen, window_id);
+    pub fn window_add(&mut self, conn: &XConn, screen: &Screen, window: Window) {
+        debug!("Adding window to workspace: {}", window.id());
+       (self._window_add)(self, conn, screen, window);
     }
 
-    pub fn window_del(&mut self, conn: &XConn, screen: &Screen, idx: usize, window_id: xcb::Window) {
+    pub fn window_del(&mut self, conn: &XConn, screen: &Screen, idx: usize, window_id: xcb::Window) -> Window {
         debug!("Deleting window at index {} from workspace: {}", idx, window_id);
-        (self._window_del)(self, conn, screen, idx, window_id);
+        return (self._window_del)(self, conn, screen, idx, window_id);
     }
 
-    pub fn window_del_focused(&mut self, conn: &XConn, screen: &Screen) -> Option<xcb::Window> {
+    pub fn window_del_focused(&mut self, conn: &XConn, screen: &Screen) -> Option<Window> {
         if let Some(focused) = self.windows.focused() {
             // Take ownership
             let focused = *focused;
@@ -102,7 +102,8 @@ impl Workspace {
             // Remove from current workspace
             self.window_del(conn, screen, 0, focused.id());
 
-            return Some(focused.id());
+            // Return id of previously focused window
+            return Some(focused);
         }
         return None;
     }
@@ -120,9 +121,5 @@ impl Workspace {
     pub fn window_focus_cycle(&mut self, conn: &XConn, screen: &Screen) {
         debug!("Cycling focused window");
         (self._window_focus_cycle)(self, conn, screen);
-    }
-
-    pub fn is_active(&self) -> bool {
-        return self.active;
     }
 }

@@ -1,4 +1,3 @@
-use crate::event::{Event, KeyEvent, MouseButton};
 use crate::helper;
 
 use xcb_util::cursor;
@@ -35,15 +34,10 @@ impl<'a> XConn<'a> {
 
     pub fn create_core_cursor(&mut self, cursor: CursorIndex, cursor_glyph: u16) {
         // Try load cursor for supplied cursor glyp
-        let cursor_id = cursor::create_font_cursor_checked(self.conn, cursor::LEFT_PTR).expect("Creating font cursor");
+        let cursor_id = cursor::create_font_cursor_checked(self.conn, cursor_glyph).expect("Creating font cursor");
 
         // Store the cursor id in the cursors array at supplied index
         self.cursors[cursor as usize] = cursor_id;
-    }
-
-    pub fn create_pixmap_cursor(&mut self, cursor: CursorIndex) {
-        // Allocate new pixmap id
-        let pixmap_id = self.conn.generate_id();
     }
 
     pub fn set_cursor(&mut self, window_id: xcb::Window, cursor: CursorIndex) {
@@ -95,12 +89,12 @@ impl<'a> XConn<'a> {
         xcb::set_input_focus(self.conn, xcb::INPUT_FOCUS_POINTER_ROOT as u8, window_id, xcb::CURRENT_TIME);
     }
 
-    pub fn destroy_window(&self, window_id: xcb::Window) {
-        debug!("Destroying window: {}", window_id);
-        xcb::destroy_window(self.conn, window_id);
+    pub fn kill_client(&self, window_id: xcb::Window) {
+        debug!("Killing client window: {}", window_id);
+        xcb::kill_client(self.conn, window_id);
     }
 
-    pub fn grab_key(&self, window_id: xcb::Window, mask: xcb::ModMask, keysym: xcb::Keysym, confine: bool) {
+    pub fn grab_key(&self, window_id: xcb::Window, mask: xcb::ModMask, keysym: xcb::Keysym) {
         debug!("Grabbing key with mask:{} sym:{} for window: {}", mask, keysym, window_id);
 
         // Get code iter for keysym
@@ -190,188 +184,23 @@ impl<'a> XConn<'a> {
         return (pointer.root_x() as i32, pointer.root_y() as i32, pointer.child())
     }
 
-    pub fn next_event(&self) -> Event {
-        loop {
-            // Flush connection to ensure clean
-            self.conn.flush();
-
-            // Check for queued, else wait for next
-            let event = if let Some(ev) = self.conn.poll_for_queued_event() {
-                ev
-            } else {
-                self.conn.wait_for_event().expect("I/O error getting event from X server")
-            };
-
-            // Declare in this scope
-            let opt;
-
-            // Set opt 'unsafely' as this is what xcb::cast_event requires
-            unsafe {
-                opt = match event.response_type() {
-                    xcb::CONFIGURE_REQUEST => self.on_configure_request(xcb::cast_event(&event)),
-                    xcb::MAP_REQUEST => self.on_map_request(xcb::cast_event(&event)),
-                    xcb::UNMAP_NOTIFY => self.on_unmap_notify(xcb::cast_event(&event)),
-                    xcb::DESTROY_NOTIFY => self.on_destroy_notify(xcb::cast_event(&event)),
-                    xcb::ENTER_NOTIFY => self.on_enter_notify(xcb::cast_event(&event)),
-                    xcb::MOTION_NOTIFY => self.on_motion_notify(xcb::cast_event(&event)),
-                    xcb::KEY_PRESS => self.on_key_press(xcb::cast_event(&event)),
-                    xcb::BUTTON_PRESS => self.on_button_press(xcb::cast_event(&event)),
-                    xcb::BUTTON_RELEASE => self.on_button_release(xcb::cast_event(&event)),
-
-                    // Unhandled event type
-                    _ => None,
-                };
-            }
-
-            // If we have an event to return, do so! Else, continue loop
-            if let Some(ev) = opt {
-                return ev;
-            }
-        }
-    }
-
-    fn on_configure_request(&self, event: &xcb::ConfigureRequestEvent) -> Option<Event> {
-        debug!("on_configure_request");
-
-        // Value vector we use at end
-        let mut values: Vec<(u16, u32)> = Vec::new();
-
-        // Set values we can find masks for
-        if xcb::CONFIG_WINDOW_X as u16 & event.value_mask()          != 0 { values.push((xcb::CONFIG_WINDOW_X as u16, event.x() as u32)); }
-        if xcb::CONFIG_WINDOW_Y as u16 & event.value_mask()          != 0 { values.push((xcb::CONFIG_WINDOW_Y as u16, event.y() as u32)); }
-        if xcb::CONFIG_WINDOW_WIDTH as u16 & event.value_mask()      != 0 { values.push((xcb::CONFIG_WINDOW_WIDTH as u16, event.width() as u32)); }
-        if xcb::CONFIG_WINDOW_HEIGHT as u16 & event.value_mask()     != 0 { values.push((xcb::CONFIG_WINDOW_HEIGHT as u16, event.height() as u32)); }
-        if xcb::CONFIG_WINDOW_SIBLING as u16 & event.value_mask()    != 0 { values.push((xcb::CONFIG_WINDOW_SIBLING as u16, event.sibling() as u32)); }
-        if xcb::CONFIG_WINDOW_STACK_MODE as u16 & event.value_mask() != 0 { values.push((xcb::CONFIG_WINDOW_STACK_MODE as u16, event.stack_mode() as u32)) }
-
-        // Configure window using filtered values
-        xcb::configure_window(&self.conn, event.window(), &values);
-
-        // Nothing to return
-        return Some(Event::ConfigureRequest(((event.x() as i32, event.y() as i32, event.width() as i32, event.height() as i32), event.window())));
-    }
-
-    fn on_map_request(&self, event: &xcb::MapRequestEvent) -> Option<Event> {
-        // Log this!
-        debug!("on_map_request: {}", event.window());
-
-        // Return new MapRequest Event
-        return Some(Event::MapRequest(event.window()));
-    }
-
-    fn on_unmap_notify(&self, event: &xcb::UnmapNotifyEvent) -> Option<Event> {
-        // Log this!
-        debug!("on_unmap_notify: {}", event.window());
-
-        // Return new UnmapNotify Event
-        return Some(Event::UnmapNotify(event.window()));
-    }
-
-    fn on_destroy_notify(&self, event: &xcb::DestroyNotifyEvent) -> Option<Event> {
-        // Log this!
-        debug!("on_destroy_notify: {}", event.window());
-
-        // Return new DestroyNotify Event
-        return Some(Event::DestroyNotify(event.window()));
-    }
-
-    fn on_enter_notify(&self, event: &xcb::EnterNotifyEvent) -> Option<Event> {
-        // Log this!
-        debug!("on_enter_notify: {}", event.event());
-
-        // Return new EnterNotify Event
-        return Some(Event::EnterNotify(event.event()));
-    }
-
-    fn on_motion_notify(&self, event: &xcb::MotionNotifyEvent) -> Option<Event> {
-        // If button press happens not in sub-window to root, we don't care
-        if event.child() == xcb::WINDOW_NONE {
-            return None;
-        }
-
-        // Log this!
-        debug!("on_motion_notify: {}", event.child());
-
-        // Return new MotionNotify Event
-        return Some(Event::MotionNotify((event.root_x() as i32, event.root_y() as i32)));
-    }
-
-    fn on_key_press(&self, event: &xcb::KeyPressEvent) -> Option<Event> {
+    pub fn lookup_keysym(&self, event: &xcb::KeyPressEvent) -> (xcb::ModMask, xcb::Keysym) {
         // Get keysym for event
         let keysym = self.key_syms.press_lookup_keysym(event, 0);
 
         // Create new key object
-        let key_ev = KeyEvent{
-            mask: event.state() as u32,
-            key:  keysym,
-        };
-
-        // Log this!
-        debug!("on_key_press: {} {}", key_ev.mask, key_ev.key);
-
-        // Return KeyPress Event
-        return Some(Event::KeyPress((key_ev, event.child())));
+        return (event.state() as u32, keysym);
     }
 
-    fn on_button_press(&self, event: &xcb::ButtonPressEvent) -> Option<Event> {
-        // If button press not in sub-window to root, we don't care
-        if event.child() == xcb::WINDOW_NONE {
-            return None;
-        }
+    pub fn next_event(&self) -> xcb::GenericEvent {
+        // Flush connection to ensure clean
+        self.conn.flush();
 
-        // Get MouseButton for event
-        let tuple = match event.detail() as u32 {
-            // Left click
-            xcb::BUTTON_INDEX_1 => {
-                debug!("on_button_press: mouse left click");
-                Event::ButtonPress(((event.root_x() as i32, event.root_y() as i32), MouseButton::LeftClick, event.child()))
-            }
-
-            // Right click
-            xcb::BUTTON_INDEX_3 => {
-                debug!("on_button_press: mouse right click");
-                Event::ButtonPress(((event.root_x() as i32, event.root_y() as i32), MouseButton::RightClick, event.child()))
-            }
-
-            // Invalid button press, return nothing
-            _ => {
-                debug!("on_button_press: unhandled button");
-                return None;
-            },
+        // Check for queued, else wait for next
+        return if let Some(event) = self.conn.poll_for_queued_event() {
+            event
+        } else {
+            self.conn.wait_for_event().expect("I/O error getting event from X server")
         };
-
-        // Return the event
-        return Some(tuple);
-    }
-
-    fn on_button_release(&self, event: &xcb::ButtonReleaseEvent) -> Option<Event> {
-        // If button press not in sub-window to root, we don't care
-        if event.child() == xcb::WINDOW_NONE {
-            return None;
-        }
-
-        // Get MouseButton for event
-        let ev = match event.detail() as u32 {
-            // Left click
-            xcb::BUTTON_INDEX_1 => {
-                debug!("on_button_release: mouse left click");
-                Event::ButtonRelease(MouseButton::LeftClick)
-            }
-
-            // Right click
-            xcb::BUTTON_INDEX_3 => {
-                debug!("on_button_release: mouse right click");
-                Event::ButtonRelease(MouseButton::RightClick)
-            }
-
-            // Invalid button press, return nothing
-            b => {
-                debug!("on_button_release: unhandled button {}", b);
-                return None;
-            },
-        };
-
-        // Return the event
-        return Some(ev);
     }
 }

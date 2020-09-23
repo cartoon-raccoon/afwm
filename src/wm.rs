@@ -1,8 +1,8 @@
 use crate::config::{KEYBINDS, MODKEY};
 use crate::desktop::Desktop;
-use crate::event::{Event, MouseButton};
 use crate::helper;
 use crate::screen::Screen;
+use crate::windows::Window;
 use crate::x::{CursorIndex, XConn, XWindow};
 
 use xcb_util::cursor;
@@ -26,6 +26,7 @@ pub struct WM<'a> {
     mouse_mode: MouseMode,
     last_mouse_x: i32,
     last_mouse_y: i32,
+    selected: Option<xcb::Window>,
 
     // Should we continue running?
     running: bool,
@@ -47,7 +48,7 @@ impl<'a> WM<'a> {
 
         // For configured keybinds, register X to grab keys on the root window
         for (mask, keysym, _) in KEYBINDS {
-            xconn.grab_key(root_id, *mask, *keysym, true);
+            xconn.grab_key(root_id, *mask, *keysym);
         }
 
         // Register root window to grab necessary mouse button events
@@ -71,6 +72,7 @@ impl<'a> WM<'a> {
             mouse_mode: MouseMode::Ground,
             last_mouse_x: 0,
             last_mouse_y: 0,
+            selected: None,
             running: true,
         };
     }
@@ -82,136 +84,262 @@ impl<'a> WM<'a> {
             // Get next event
             let event = self.conn.next_event();
 
-            // Handle event
-            match event {
-                Event::ConfigureRequest(((x, y, width, height), window_id)) => {
-                    if window_id == self.screen.id() {
-                        // If this is the root window, update the screen
-                        debug!("Received updated root window geometry");
-                        self.screen.set(x, y, width, height);
-                    } else {
-                        // Else try update window geometry in our collection
-                        if let Some((ws, idx)) = self.desktop.contains_mut(window_id) {
-                            debug!("Updating child window geometry");
-                            ws.windows.get_mut(idx).unwrap().set(x, y, width, height);
-                        } else {
-                            warn!("Recieved configure request event for non-tracked window: {}", window_id);
-                        }
-                    }
-                },
+            // Cast (this is unsafe) and pass event to appropriate function
+            unsafe {
+                match event.response_type() {
+                    xcb::CONFIGURE_NOTIFY => self.on_configure_notify(xcb::cast_event(&event)),
+                    xcb::CONFIGURE_REQUEST => self.on_configure_request(xcb::cast_event(&event)),
+                    xcb::MAP_REQUEST => self.on_map_request(xcb::cast_event(&event)),
+                    xcb::UNMAP_NOTIFY => self.on_unmap_notify(xcb::cast_event(&event)),
+                    xcb::DESTROY_NOTIFY => self.on_destroy_notify(xcb::cast_event(&event)),
+                    xcb::ENTER_NOTIFY => self.on_enter_notify(xcb::cast_event(&event)),
+                    xcb::MOTION_NOTIFY => self.on_motion_notify(xcb::cast_event(&event)),
+                    xcb::BUTTON_PRESS => self.on_button_press(xcb::cast_event(&event)),
+                    xcb::BUTTON_RELEASE => self.on_button_release(xcb::cast_event(&event)),
+                    xcb::KEY_PRESS => self.on_key_press(xcb::cast_event(&event)),
 
-                Event::MapRequest(window_id) => {
-                    if let Some((ws, _)) = self.desktop.contains_mut(window_id) {
-                        // We already have this window, if in the current then focus!
-                        if ws.is_active() {
-                            ws.window_focus(&self.conn, &self.screen, window_id);
-                        }
-                    } else {
-                        // Add to current workspace
-                        self.desktop.current_mut().window_add(&self.conn, &self.screen, window_id);
-                    }
-                },
-
-                Event::DestroyNotify(window_id) | Event::UnmapNotify(window_id) => {
-                    // Remove window (if there!)
-                    if let Some((ws, idx)) = self.desktop.contains_mut(window_id) {
-                        ws.window_del(&self.conn, &self.screen, idx, window_id);
-                    }
-                },
-
-                Event::EnterNotify(window_id) => {
-                    // If window in current workspace, focus!
-                    if self.desktop.current().windows.contains(window_id).is_some() {
-                        self.conn.set_input_focus(window_id);
-                    } else {
-                        warn!("Received enter notify event for non-tracked window: {}", window_id);
-                    }
-                },
-
-                Event::MotionNotify((px, py)) => {
-                    // Calculate dx, dy
-                    let dx = (px - self.last_mouse_x) as i32;
-                    let dy = (py - self.last_mouse_y) as i32;
-
-                    // Set new last mouse positions
-                    self.last_mouse_x = px;
-                    self.last_mouse_y = py;
-
-                    // React depending on current MouseMode
-                    match self.mouse_mode {
-                        MouseMode::Move => {
-                            // Move currently focused window
-                            if let Some(focused) = self.desktop.current_mut().windows.focused_mut() {
-                                focused.do_move(&self.conn, &self.screen, dx, dy);
-                            }
-                        },
-
-                        MouseMode::Resize => {
-                            // Resize currently focused window
-                            if let Some(focused) = self.desktop.current_mut().windows.focused_mut() {
-                                focused.do_resize(&self.conn, &self.screen, dx, dy);
-                            }
-                        },
-
-                        _ => {},
-                    }
-                },
-
-                Event::KeyPress((key_ev, window_id)) => {
-                    // Try get function for keybind
-                    for (mask, key, keyfn) in KEYBINDS {
-                        if *mask == key_ev.mask &&
-                           *key == key_ev.key {
-                            // If window id isn't the focused window id, refocus
-                            if !self.desktop.current_mut().windows.is_focused(window_id) {
-                                self.desktop.current_mut().window_focus(&self.conn, &self.screen, window_id);
-                            }
-
-                            // Execute! And return
-                            keyfn(self);
-                            break;
-                        }
-                    }
-                },
-
-                Event::ButtonPress(((px, py), but, window_id)) => {
-                    // Set current mouse position
-                    self.last_mouse_x = px;
-                    self.last_mouse_y = py;
-
-                    // If window id different to focused, focus this one
-                    if window_id != self.desktop.current().windows.focused().unwrap().id() {
-                        self.desktop.current_mut().window_focus(&self.conn, &self.screen, window_id);
-                    }
-
-                    // Start grabbing pointer
-                    self.conn.grab_pointer(self.screen.id(), helper::ROOT_POINTER_GRAB_MASK, false);
-
-                    // Handle button press
-                    match but {
-                        MouseButton::LeftClick => {
-                            // Enter move mode
-                            self.mouse_mode = MouseMode::Move;
-                        },
-
-                        MouseButton::RightClick => {
-                            // Enter resize mode
-                            self.mouse_mode = MouseMode::Resize;
-                        },
-                    }
-                },
-
-                Event::ButtonRelease(_) => {
-                    // Regardless of button, current state etc, we unset the mouse mode
-                    self.mouse_mode = MouseMode::Ground;
-
-                    // Ungrab pointer
-                    self.conn.ungrab_pointer();
-                },
+                    _ => debug!("unhandled event type: {}", event.response_type()),
+                }
             }
         }
 
         info!("Finished running");
+    }
+
+    fn on_configure_notify(&mut self, event: &xcb::ConfigureNotifyEvent) {
+        // We only care about this if it's the route window being configured
+        if event.window() == self.screen.id() {
+            debug!("on_configure_notify: root window");
+
+            // Set new root window geometry
+            self.screen.x = event.x() as i32;
+            self.screen.y = event.y() as i32;
+            self.screen.width = event.width() as i32;
+            self.screen.height = event.height() as i32;
+
+            // Deactivate / active current workspace to redraw
+            self.desktop.current_mut().deactivate(&self.conn);
+            self.desktop.current_mut().activate(&self.conn, &self.screen);
+        }
+    }
+
+    fn on_configure_request(&mut self, event: &xcb::ConfigureRequestEvent) {
+        debug!("on_configure_request: {}", event.window());
+
+        // Get the referenced Window
+        if let Some((ws, idx)) = self.desktop.contains_mut(event.window()) {
+            // Get the window at index
+            let window = ws.windows.get_mut(idx).unwrap();
+
+            // Value vector we use at end
+            let mut values: Vec<(u16, u32)> = Vec::new();
+
+            // If x configuration mask found, push to values vector and set Window geometry
+            if xcb::CONFIG_WINDOW_X as u16 & event.value_mask() != 0 {
+                values.push((xcb::CONFIG_WINDOW_X as u16, event.x() as u32));
+                window.x = event.x() as i32;
+            }
+
+            // If y configuration mask found, push to values vector and set Window geometry
+            if xcb::CONFIG_WINDOW_Y as u16 & event.value_mask() != 0 {
+                values.push((xcb::CONFIG_WINDOW_Y as u16, event.y() as u32));
+                window.y = event.y() as i32;
+            }
+
+            // If width configuration mask found, push to values vector and set Window geometry
+            if xcb::CONFIG_WINDOW_WIDTH as u16 & event.value_mask() != 0 {
+                values.push((xcb::CONFIG_WINDOW_WIDTH as u16, event.width() as u32));
+                window.width = event.width() as i32;
+            }
+
+            // If height configuration mask found, push to values vector and set Window geometry
+            if xcb::CONFIG_WINDOW_HEIGHT as u16 & event.value_mask() != 0 {
+                values.push((xcb::CONFIG_WINDOW_HEIGHT as u16, event.height() as u32));
+                window.height = event.height() as i32;
+            }
+
+            // If stack mode configuration mask found, push to values vector and set Window
+            //if xcb::CONFIG_WINDOW_STACK_MODE as u16 & event.value_mask() != 0 {
+            //    values.push((xcb::CONFIG_WINDOW_STACK_MODE as u16, event.stack_mode() as u32));
+            //}
+
+            // If sibling configuration mask found, push to values vector and set Window
+            //if xcb::CONFIG_WINDOW_SIBLING as u16 & event.value_mask() != 0 {
+            //    values.push((xcb::CONFIG_WINDOW_SIBLING as u16, event.sibling() as u32));
+            //}
+
+            // Configure window using filtered values
+            self.conn.configure_window(event.window(), &values);
+        } else {
+            warn!("Received configure request for non-tracked window!");
+        }
+    }
+
+    fn on_map_request(&mut self, event: &xcb::MapRequestEvent) {
+        debug!("on_map_request: {}", event.window());
+
+        // Try get Window specified
+        if let Some((ws, idx)) = self.desktop.contains_mut(event.window()) {
+            // We found the window, if in the current workspace then focus!
+            if ws.active {
+                ws.window_focus_idx(&self.conn, &self.screen, idx);
+            }
+        } else {
+            // Not found, create new window
+            let mut window = Window::from(event.window());
+
+            // Fetch window geometry
+            self.conn.update_geometry(&mut window);
+
+            // Add the Window to the current workspace
+            self.desktop.current_mut().window_add(&self.conn, &self.screen, window);
+        }
+    }
+
+    fn on_unmap_notify(&mut self, event: &xcb::UnmapNotifyEvent) {
+        debug!("on_unmap_notify: {}", event.window());
+
+        // This event shouldn't be generated by ourselves (we toggle tracking during unmap to ensure this).
+        // We can safely assume that we should just remove whatever Window from whatever workspace it may be in
+        if let Some((ws, idx)) = self.desktop.contains_mut(event.window()) {
+            ws.window_del(&self.conn, &self.screen, idx, event.window());
+        } else {
+            warn!("Recieved unmap notify event for non-trackked window");
+        }
+    }
+
+    fn on_destroy_notify(&mut self, event: &xcb::DestroyNotifyEvent) {
+        debug!("on_destroy_notify: {}", event.window());
+
+        // Whether this event was generated by us, or someone else, it doesn't matter.
+        // We can safely assume that we should just remove whatever Window from whatever workspace it may be in
+        if let Some((ws, idx)) = self.desktop.contains_mut(event.window()) {
+            ws.window_del(&self.conn, &self.screen, idx, event.window());
+        } else {
+            warn!("Received destroy notify event for non-tracked window!");
+        }
+    }
+
+    fn on_enter_notify(&mut self, event: &xcb::EnterNotifyEvent) {
+        debug!("on_enter_notify: {}", event.event());
+
+        // We should only receive these from child windows we've tracked, so if in current workspace we set input focus
+        if self.desktop.current().windows.contains(event.event()).is_some() {
+            self.conn.set_input_focus(event.event());
+        } else {
+            warn!("Received enter notify event for window either not in current workspace or non-tracked!");
+        }
+    }
+
+    fn on_motion_notify(&mut self, event: &xcb::MotionNotifyEvent) {
+        // Only perform something if there's a window selected
+        if let Some(selected) = self.selected {
+            debug!("on_motion_notify");
+
+            // Calculate dx, dy
+            let dx = event.root_x() as i32 - self.last_mouse_x;
+            let dy = event.root_y() as i32 - self.last_mouse_y;
+
+            // Set new last mouse positions
+            self.last_mouse_x = event.root_x() as i32;
+            self.last_mouse_y = event.root_y() as i32;
+
+            // Get the selected Window, this should be focused but may not always
+            if let Some(idx) = self.desktop.current().windows.contains(selected) {
+                let selected = self.desktop.current_mut().windows.get_mut(idx).unwrap();
+
+                // React depending on current MouseMode
+                match self.mouse_mode {
+                    MouseMode::Move => {
+                        selected.do_move(&self.conn, &self.screen, dx, dy);
+                    },
+
+                    MouseMode::Resize => {
+                        selected.do_resize(&self.conn, &self.screen, dx, dy);
+                    },
+
+                    _ => panic!("MouseMode::Ground reached in on_motion_notify()"),
+                }
+            }
+        }
+    }
+
+    fn on_button_press(&mut self, event: &xcb::ButtonPressEvent) {
+        // If button press not in a child window to root, we don't care
+        if event.child() == xcb::WINDOW_NONE {
+            return;
+        }
+
+        // Set the selected window
+        self.selected = Some(event.child());
+
+        // Set current mouse position
+        self.last_mouse_x = event.root_x() as i32;
+        self.last_mouse_y = event.root_y() as i32;
+
+        // Start grabbing pointer
+        self.conn.grab_pointer(self.screen.id(), helper::ROOT_POINTER_GRAB_MASK, false);
+
+        // If window id different to focused, focus it
+        if !self.desktop.current().windows.is_focused(event.child()) {
+            self.desktop.current_mut().window_focus(&self.conn, &self.screen, event.child());
+        }
+
+        // Get MouseButton for event
+        match event.detail() as u32 {
+            // Left click, set mouse mode
+            xcb::BUTTON_INDEX_1 => {
+                debug!("on_button_press: mouse left click");
+                self.mouse_mode = MouseMode::Move;
+            },
+
+            // Right click, set mouse mode
+            xcb::BUTTON_INDEX_3 => {
+                debug!("on_button_press: mouse right click");
+                self.mouse_mode = MouseMode::Resize;
+            },
+
+            _ => panic!("Unhandled button press in on_button_press"),
+        }
+    }
+
+    fn on_button_release(&mut self, event: &xcb::ButtonReleaseEvent) {
+        // We only log these in debug builds
+        #[cfg(debug_assertions)]
+        match event.detail() as u32  {
+            xcb::BUTTON_INDEX_1 => debug!("on_button_release: mouse left click"),
+            xcb::BUTTON_INDEX_3 => debug!("on_button_release: mouse right click"),
+            _ => panic!("Unhandled button release in on_button_release"),
+        }
+
+        // Unselect the window and unset MouseMode
+        self.selected = None;
+        self.mouse_mode = MouseMode::Ground;
+
+        // Ungrab the pointer
+        self.conn.ungrab_pointer();
+    }
+
+    fn on_key_press(&mut self, event: &xcb::KeyPressEvent) {
+        // Decode KeyEvent
+        let (press_mask, press_key) = self.conn.lookup_keysym(event);
+
+        debug!("on_key_press: {} {}", press_mask, press_key);
+
+        // Try get function for keybind
+        for (mask, key, keyfn) in KEYBINDS {
+            // Check for match
+            if *mask == press_mask && *key == press_key {
+                // If window id isn't the focused window id, refocus
+                if !self.desktop.current().windows.is_focused(event.child()) {
+                    self.desktop.current_mut().window_focus(&self.conn, &self.screen, event.child());
+                }
+
+                // Execute! And return
+                keyfn(self);
+                return;
+            }
+        }
     }
 
     pub fn kill(&mut self) {

@@ -11,7 +11,7 @@ pub fn activate(ws: &mut Workspace, conn: &XConn, screen: &Screen) {
     }
 
     // Iterate windows
-    for window in ws.windows.iter_rev_mut() {
+    for window in ws.windows.iter_rev() {
         // Disable events before mapping the window
         conn.change_window_attributes(window.id(), &helper::values_attributes_no_events());
 
@@ -40,25 +40,22 @@ pub fn deactivate(ws: &mut Workspace, conn: &XConn) {
     }
 }
 
-pub fn window_add(ws: &mut Workspace, conn: &XConn, screen: &Screen, window_id: xcb::Window) {
-    // Internally add
-    ws.windows.add(Window::from(window_id));
-
-    // Set the window to the start of the screen
-    conn.configure_window(window_id, &helper::values_configure_move(screen.x as u32, screen.y as u32));
-
+pub fn window_add(ws: &mut Workspace, conn: &XConn, screen: &Screen, window: Window) {
     // Tell X to map and focus the window
-    conn.map_window(window_id);
-    conn.set_input_focus(window_id);
+    conn.map_window(window.id());
+    conn.set_input_focus(window.id());
 
     // Start tracking events for this window
-    conn.change_window_attributes(window_id, &helper::values_attributes_child_events());
+    conn.change_window_attributes(window.id(), &helper::values_attributes_child_events());
 
-    // Update the window geometry
-    conn.update_geometry(ws.windows.focused_mut().unwrap());
+    // Internally add
+    ws.windows.add(window);
 }
 
-pub fn window_del(ws: &mut Workspace, conn: &XConn, screen: &Screen, idx: usize, window_id: xcb::Window) {
+pub fn window_del(ws: &mut Workspace, conn: &XConn, screen: &Screen, idx: usize, window_id: xcb::Window) -> Window {
+    // Get window and _own_
+    let window = *ws.windows.get(idx).unwrap();
+
     // Internally remove window at position
     ws.windows.remove(idx);
 
@@ -70,6 +67,9 @@ pub fn window_del(ws: &mut Workspace, conn: &XConn, screen: &Screen, idx: usize,
 
     // If we just deleted the previously focused, focus the next index 0
     if idx == 0 { window_focus_idx(ws, conn, screen, 0); }
+
+    // Return the Window
+    return window;
 }
 
 pub fn window_focus(ws: &mut Workspace, conn: &XConn, screen: &Screen, window_id: xcb::Window) {

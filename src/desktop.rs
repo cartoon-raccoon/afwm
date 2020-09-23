@@ -1,7 +1,7 @@
 use crate::config::WORKSPACES;
 use crate::screen::Screen;
 use crate::workspace::Workspace;
-use crate::x::{XConn,XWindow};
+use crate::x::XConn;
 
 #[derive(Default)]
 pub struct Desktop {

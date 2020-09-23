@@ -3,7 +3,6 @@ mod log;
 
 mod config;
 mod desktop;
-mod event;
 mod helper;
 mod layout;
 mod screen;

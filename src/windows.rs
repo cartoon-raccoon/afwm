@@ -1,8 +1,17 @@
+use crate::config::{WIN_WIDTH_MIN, WIN_HEIGHT_MIN};
 use crate::helper;
 use crate::screen::Screen;
 use crate::x::{XConn, XWindow};
 
 use std::collections::VecDeque;
+
+fn ensure_in_bounds(val: &mut i32, min: i32, max: i32) {
+    if *val < min {
+        *val = min;
+    } else if *val > max {
+        *val = max;
+    }
+}
 
 #[derive(Copy, Clone)]
 pub struct Window {
@@ -54,18 +63,18 @@ impl Window {
         self.width += dx;
         self.height += dy;
 
-        // If at screen max, scale it back
-        let end_x = screen.x + screen.width;
-        if self.x + self.width > end_x {
-            self.width = end_x - self.x;
-        }
-        let end_y = screen.y + screen.height;
-        if self.y + self.height > end_y {
-            self.height = end_y - self.y;
-        }
+        // Ensure the window sizes are within set bounds
+        ensure_in_bounds(&mut self.width, WIN_WIDTH_MIN as i32, screen.x + screen.width - self.x);
+        ensure_in_bounds(&mut self.height, WIN_HEIGHT_MIN as i32, screen.y + screen.height - self.y);
+
+        // Untrack before configuration
+        conn.change_window_attributes(self.id, &helper::values_attributes_no_events());
 
         // Send new window configuration to X
         conn.configure_window(self.id, &helper::values_configure_resize(self.width as u32, self.height as u32));
+
+        // Re-enable tracking
+        conn.change_window_attributes(self.id, &helper::values_attributes_child_events());
     }
 
     // we're using this name because `move` is reseeeeerved, bleh
@@ -74,8 +83,18 @@ impl Window {
         self.x += dx;
         self.y += dy;
 
+        // Ensure the window coords are within set bounds (still pick-up-able)
+        ensure_in_bounds(&mut self.x, screen.x - self.width  + 10, screen.x + screen.width  - 10);
+        ensure_in_bounds(&mut self.y, screen.y - self.height + 10, screen.y + screen.height - 10);
+
+        // Untrack before configuration
+        conn.change_window_attributes(self.id, &helper::values_attributes_no_events());
+
         // Send new window configuration to X
         conn.configure_window(self.id, &helper::values_configure_move(self.x as u32, self.y as u32));
+
+        // Re-enable tracking
+        conn.change_window_attributes(self.id, &helper::values_attributes_child_events());
     }
 }
 

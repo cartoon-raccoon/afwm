@@ -1,5 +1,4 @@
 use crate::layout::LayoutType;
-use crate::windows::Window;
 use crate::wm::WM;
 use crate::x::XWindow;
 
@@ -11,6 +10,8 @@ use x11::keysym;
 
 // Geometry
 pub const BAR_SIZE: u16 = 18;
+pub const WIN_WIDTH_MIN: u16 = 200;
+pub const WIN_HEIGHT_MIN: u16 = 100;
 
 // Number of workspaces to have
 pub const WORKSPACES: usize = 9;
@@ -34,7 +35,7 @@ pub const KEYBINDS: &[(xcb::ModMask, xcb::Keysym, fn(&mut WM))] = &[
     (0, keysym::XF86XK_AudioMicMute,     |_|{ run(&["amixer", "sset", "Capture", "1+", "toggle"]) }),
 
     // Launch terminal
-    (MODKEY|xproto::MOD_MASK_SHIFT, keysym::XK_Return, |_|{ run(&["urxvt-launch"]) }),
+    (MODKEY|xproto::MOD_MASK_SHIFT, keysym::XK_Return, |_|{ run(&["alacritty"]) }),
 
     // Close focused window
     (MODKEY|xproto::MOD_MASK_SHIFT, keysym::XK_c, |wm|{ close_focused_window(wm) }),
@@ -75,10 +76,10 @@ pub const KEYBINDS: &[(xcb::ModMask, xcb::Keysym, fn(&mut WM))] = &[
     (MODKEY|xproto::MOD_MASK_SHIFT, keysym::XK_f, |wm|{ wm.desktop.current_mut().set_layout(&wm.conn, &wm.screen, LayoutType::Floating) } ),
 ];
 
-// If there is a currently focused window, send a destroy command via X
+// If there is a currently focused window, send a kill client command via X
 fn close_focused_window(wm: &mut WM) {
     if let Some(focused) = wm.desktop.current_mut().windows.focused() {
-        wm.conn.destroy_window(focused.id());
+        wm.conn.kill_client(focused.id());
     }
 }
 
@@ -86,7 +87,7 @@ fn close_focused_window(wm: &mut WM) {
 fn send_window_from_workspace_to(wm: &mut WM, idx: usize) {
     if let Some(focused) = wm.desktop.current_mut().window_del_focused(&wm.conn, &wm.screen) {
         // Remove this window from current workspace
-        wm.desktop.get_mut(idx).windows.add(Window::from(focused));
+        wm.desktop.get_mut(idx).windows.add(focused);
     }
 }
 
