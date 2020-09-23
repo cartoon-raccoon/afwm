@@ -53,12 +53,6 @@ impl<'a> XConn<'a> {
         return self.conn.get_setup();
     }
 
-    pub fn query_tree(&self, window_id: xcb::Window) -> Vec<xcb::Window> {
-        debug!("Querying tree for window: {}", window_id);
-        let reply = xcb::query_tree(&self.conn, window_id).get_reply().expect("Querying window tree");
-        return reply.children().iter().map(|w| { *w }).collect();
-    }
-
     pub fn map_window(&self, window_id: xcb::Window) {
         debug!("Mapping window: {}", window_id);
         xcb::map_window(self.conn, window_id);
