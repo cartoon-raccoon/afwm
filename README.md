@@ -13,15 +13,21 @@ Keepin' it simple. LOC count: `944`
 
 ![screenshot](https://github.com/grufwub/afwm/raw/master/screenshot.png)
 
+# Issues
+
+- full-screen windows (e.g. games) not working
+
+- MOD+Tab window cycling ignores currently focused window
+
+- child windows of children (e.g. popup windows, not menus) not rendering
+  until they're grabbed with MOD+LeftClick and focused. I think this may be
+  us not propagating CirculateRequest events
+
 # Todos
 
 - add randr support
 
 - add tiling mode + window gaps in tiling mode
-
-- add full-screen window support (e.g. games break everything right now)
-
-- improve MOD+Tab window cycling
 
 - either add status bar with workspace info, or support _some_ EWMH
 
