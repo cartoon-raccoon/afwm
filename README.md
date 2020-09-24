@@ -15,13 +15,16 @@ Keepin' it simple. LOC count: `944`
 
 # Issues
 
-- full-screen windows (e.g. games) not working
-
 - MOD+Tab window cycling ignores currently focused window
 
 - child windows of children (e.g. popup windows, not menus) not rendering
   until they're grabbed with MOD+LeftClick and focused. I think this may be
   us not propagating CirculateRequest events
+
+- full-screen windows (e.g. games) not working. could be related to above
+
+- opening new Firefox windows doesn't map them to the screen until the current
+  window is moved to another workspace. again, could be related to above
 
 # Todos
 
