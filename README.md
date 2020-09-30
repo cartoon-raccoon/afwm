@@ -2,14 +2,14 @@ Super simple X window manager in Rust. Accronym TBD.
 
 Built around Rust XCB bindings.
 
-No *full* ICCCM/EWMH support planned, possibly just enought to get by. As
+No *full* ICCCM/EWMH support planned, just enough to get by. As
 for why, see: https://raw.githubusercontent.com/kfish/xsel/master/rant.txt
 
 Floating only (for now).
 
 Set your key binds in `src/config.rs`.
 
-Keepin' it simple. LOC count: `944`
+Keepin' it simple. LOC count: `1026`
 
 ![screenshot](https://github.com/grufwub/afwm/raw/master/screenshot.png)
 
@@ -33,5 +33,3 @@ Keepin' it simple. LOC count: `944`
 - add tiling mode + window gaps in tiling mode
 
 - either add status bar with workspace info, or support _some_ EWMH
-
-- fix old code comments (referring to previous versions)
