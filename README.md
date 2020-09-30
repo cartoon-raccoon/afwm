@@ -17,14 +17,10 @@ Keepin' it simple. LOC count: `1009`
 
 - MOD+Tab window cycling ignores currently focused window
 
-- child windows of children (e.g. popup windows, not menus) not rendering
-  until they're grabbed with MOD+LeftClick and focused. I think this may be
-  us not propagating CirculateRequest events
-
-- full-screen windows (e.g. games) not working. could be related to above
+- full-screen windows (e.g. games) not working
 
 - opening new Firefox windows doesn't map them to the screen until the current
-  window is moved to another workspace. again, could be related to above
+  window is moved to another workspace
 
 # Todos
 
@@ -32,4 +28,4 @@ Keepin' it simple. LOC count: `1009`
 
 - add tiling mode + window gaps in tiling mode
 
-- either add status bar with workspace info, or support _some_ EWMH
+- output window manager state to file (for lemonbar, etc)
