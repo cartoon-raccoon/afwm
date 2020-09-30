@@ -67,14 +67,8 @@ impl Window {
         ensure_in_bounds(&mut self.width, WIN_WIDTH_MIN as i32, screen.x + screen.width - self.x);
         ensure_in_bounds(&mut self.height, WIN_HEIGHT_MIN as i32, screen.y + screen.height - self.y);
 
-        // Untrack before configuration
-        conn.change_window_attributes(self.id, &helper::values_attributes_no_events());
-
         // Send new window configuration to X
         conn.configure_window(self.id, &helper::values_configure_resize(self.width as u32, self.height as u32));
-
-        // Re-enable tracking
-        conn.change_window_attributes(self.id, &helper::values_attributes_child_events());
     }
 
     // we're using this name because `move` is reseeeeerved, bleh
@@ -87,34 +81,26 @@ impl Window {
         ensure_in_bounds(&mut self.x, screen.x - self.width  + 10, screen.x + screen.width  - 10);
         ensure_in_bounds(&mut self.y, screen.y - self.height + 10, screen.y + screen.height - 10);
 
-        // Untrack before configuration
-        conn.change_window_attributes(self.id, &helper::values_attributes_no_events());
-
         // Send new window configuration to X
         conn.configure_window(self.id, &helper::values_configure_move(self.x as u32, self.y as u32));
-
-        // Re-enable tracking
-        conn.change_window_attributes(self.id, &helper::values_attributes_child_events());
     }
 }
 
 #[derive(Default)]
-pub struct Windows {
-    windows: VecDeque<Window>,
-}
+pub struct Windows(VecDeque<Window>);
 
 impl Windows {
     pub fn len(&self) -> usize {
-        return self.windows.len();
+        return self.0.len();
     }
 
     pub fn is_empty(&self) -> bool {
-        return self.windows.len() == 0;
+        return self.0.len() == 0;
     }
 
     pub fn index_of(&self, window_id: xcb::Window) -> Option<usize> {
         let mut idx: usize = 0;
-        for w in self.windows.iter() {
+        for w in self.0.iter() {
             if w.id == window_id {
                 return Some(idx);
             }
@@ -124,40 +110,66 @@ impl Windows {
     }
 
     pub fn add(&mut self, window: Window) {
-        self.windows.push_front(window);
+        self.0.push_front(window);
     }
 
     pub fn remove(&mut self, idx: usize) {
-        self.windows.remove(idx);
+        self.0.remove(idx);
+    }
+
+    pub fn swap(&mut self, idx_1: usize, idx_2: usize) {
+        self.0.swap(idx_1, idx_2);
+    }
+
+    pub fn to_front(&mut self, idx: usize) {
+        // Get Window at index and take ownership
+        let window = *self.0.get(idx).unwrap();
+
+        // Remove the window at this index
+        self.0.remove(idx);
+
+        // Add window back to self
+        self.0.push_front(window);
+    }
+
+    pub fn to_back(&mut self, idx: usize) {
+        // Get Window at index and take ownership
+        let window = *self.0.get(idx).unwrap();
+
+        // Remove the window at this index
+        self.0.remove(idx);
+
+        // Add window back to self
+        self.0.push_back(window);
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Window> {
-        return self.windows.iter();
+        return self.0.iter();
     }
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Window> {
-        return self.windows.iter_mut();
+        return self.0.iter_mut();
     }
 
     pub fn iter_rev(&self) -> impl Iterator<Item = &Window> {
-        return self.windows.iter().rev();
+        return self.0.iter().rev();
     }
 
     pub fn iter_rev_mut(&mut self) -> impl Iterator<Item = &mut Window> {
-        return self.windows.iter_mut().rev();
+        return self.0.iter_mut().rev();
     }
 
     pub fn get(&self, idx: usize) -> Option<&Window> {
-        return self.windows.get(idx);
+        return self.0.get(idx);
     }
 
     pub fn get_mut(&mut self, idx: usize) -> Option<&mut Window> {
-        return self.windows.get_mut(idx);
+        return self.0.get_mut(idx);
     }
 
     pub fn contains(&self, window_id: xcb::Window) -> Option<usize> {
         let mut idx: usize = 0;
-        for window in self.windows.iter() {
+        for window in self.0.iter() {
             if window.id == window_id {
                 return Some(idx);
             }
@@ -174,10 +186,10 @@ impl Windows {
     }
 
     pub fn focused(&self) -> Option<&Window> {
-        return self.windows.get(0);
+        return self.0.get(0);
     }
 
     pub fn focused_mut(&mut self) -> Option<&mut Window> {
-        return self.windows.get_mut(0);
+        return self.0.get_mut(0);
     }
 }

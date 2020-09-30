@@ -5,7 +5,7 @@ use crate::screen::Screen;
 use crate::windows::Window;
 use crate::x::{CursorIndex, XConn, XWindow};
 
-use xcb_util::cursor;
+use xcb_util::{cursor, ewmh};
 
 #[derive(PartialEq)]
 enum MouseMode {
@@ -33,7 +33,7 @@ pub struct WM<'a> {
 }
 
 impl<'a> WM<'a> {
-    pub fn register(conn: &'a xcb::Connection, screen_idx: i32) -> Self {
+    pub fn register(conn: &'a ewmh::Connection, screen_idx: i32) -> Self {
         // Create new XConn wrapping xcb::Connection
         let mut xconn = XConn::new(conn);
 
@@ -45,6 +45,9 @@ impl<'a> WM<'a> {
 
         // Try register the root window for necessary window management events
         xconn.change_window_attributes_checked(root_id, &helper::values_attributes_root());
+
+        // Set supported atoms
+        xconn.set_supported(screen_idx, &[xconn.atoms.WM_PROTOCOLS, xconn.atoms.WM_DELETE_WINDOW]);
 
         // For configured keybinds, register X to grab keys on the root window
         for (mask, keysym, _) in KEYBINDS {
@@ -64,6 +67,28 @@ impl<'a> WM<'a> {
         // Perform initial screen geometry fetch
         xconn.update_geometry(&mut screen);
 
+        // Create Desktop object
+        let mut desktop = Desktop::default();
+
+        // Perform initial client fetch
+        for existing_id in xconn.query_tree(root_id).iter() {
+            // Get attributes for id
+            let attr = xconn.get_window_attributes(*existing_id);
+
+            // Ignore windows in override redirect mode / invisible
+            if attr.override_redirect() || attr.map_state() as u32 != xcb::MAP_STATE_VIEWABLE {
+                continue;
+            }
+            debug!("Adding existing window: {}", *existing_id);
+
+            // Create Window from existing id, get geometry
+            let mut window = Window::from(*existing_id);
+            xconn.update_geometry(&mut window);
+
+            // Add window to current workspace!
+            desktop.current_mut().windows.add(window);
+        }
+
         // Return new WM object
         return Self {
             conn: xconn,
@@ -80,6 +105,9 @@ impl<'a> WM<'a> {
     pub fn run(&mut self) {
         info!("Started running");
 
+        // Perform an initial activation of current workspace in case contains any windows
+        self.desktop.current_mut().activate(&self.conn, &self.screen);
+
         while self.running {
             // Get next event
             let event = self.conn.next_event();
@@ -87,6 +115,7 @@ impl<'a> WM<'a> {
             // Cast (this is unsafe) and pass event to appropriate function
             unsafe {
                 match event.response_type() {
+                    // Handle necessary events
                     xcb::CONFIGURE_NOTIFY => self.on_configure_notify(xcb::cast_event(&event)),
                     xcb::CONFIGURE_REQUEST => self.on_configure_request(xcb::cast_event(&event)),
                     xcb::MAP_REQUEST => self.on_map_request(xcb::cast_event(&event)),
@@ -98,7 +127,7 @@ impl<'a> WM<'a> {
                     xcb::BUTTON_RELEASE => self.on_button_release(xcb::cast_event(&event)),
                     xcb::KEY_PRESS => self.on_key_press(xcb::cast_event(&event)),
 
-                    _ => debug!("unhandled event type: {}", event.response_type()),
+                    unhandled => debug!("unhandled event type: {}", unhandled),
                 }
             }
         }
@@ -126,9 +155,8 @@ impl<'a> WM<'a> {
     fn on_configure_request(&mut self, event: &xcb::ConfigureRequestEvent) {
         debug!("on_configure_request: {}", event.window());
 
-        // Get the referenced Window
         if let Some((ws, idx)) = self.desktop.contains_mut(event.window()) {
-            // Get the window at index
+            // Get the referenced window at index
             let window = ws.windows.get_mut(idx).unwrap();
 
             // Value vector we use at end
@@ -158,34 +186,30 @@ impl<'a> WM<'a> {
                 window.height = event.height() as i32;
             }
 
-            // If stack mode configuration mask found, push to values vector and set Window
-            //if xcb::CONFIG_WINDOW_STACK_MODE as u16 & event.value_mask() != 0 {
-            //    values.push((xcb::CONFIG_WINDOW_STACK_MODE as u16, event.stack_mode() as u32));
-            //}
-
-            // If sibling configuration mask found, push to values vector and set Window
-            //if xcb::CONFIG_WINDOW_SIBLING as u16 & event.value_mask() != 0 {
-            //    values.push((xcb::CONFIG_WINDOW_SIBLING as u16, event.sibling() as u32));
-            //}
-
             // Configure window using filtered values
             self.conn.configure_window(event.window(), &values);
         } else {
-            warn!("Received configure request for non-tracked window!");
+            debug!("Received configure request event for non-tracked window!");
         }
     }
 
     fn on_map_request(&mut self, event: &xcb::MapRequestEvent) {
         debug!("on_map_request: {}", event.window());
 
-        // Try get Window specified
-        if let Some((ws, idx)) = self.desktop.contains_mut(event.window()) {
-            // We found the window, if in the current workspace then focus!
-            if ws.active {
-                ws.window_focus_idx(&self.conn, &self.screen, idx);
+        if self.desktop.contains(event.window()).is_none() {
+            // Window not already tracked! Check it's one of the types we _want_ to track
+            let window_type = self.conn.get_wm_window_type(event.window());
+            if !(window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_NORMAL)  ||
+                 window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_DIALOG)  ||
+                 window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_TOOLBAR) ||
+                 window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_UTILITY) ||
+                 window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_SPLASH)) {
+                // We don't want to track this, but we still want it to be displayed
+                self.conn.map_window(event.window());
+                return;
             }
-        } else {
-            // Not found, create new window
+
+            // Create new window
             let mut window = Window::from(event.window());
 
             // Fetch window geometry
@@ -198,36 +222,38 @@ impl<'a> WM<'a> {
 
     fn on_unmap_notify(&mut self, event: &xcb::UnmapNotifyEvent) {
         debug!("on_unmap_notify: {}", event.window());
-
-        // This event shouldn't be generated by ourselves (we toggle tracking during unmap to ensure this).
-        // We can safely assume that we should just remove whatever Window from whatever workspace it may be in
-        if let Some((ws, idx)) = self.desktop.contains_mut(event.window()) {
-            ws.window_del(&self.conn, &self.screen, idx, event.window());
-        } else {
-            warn!("Recieved unmap notify event for non-trackked window");
-        }
+        self._unmap_window(event.window());
     }
 
     fn on_destroy_notify(&mut self, event: &xcb::DestroyNotifyEvent) {
         debug!("on_destroy_notify: {}", event.window());
+        self._unmap_window(event.window());
+    }
 
-        // Whether this event was generated by us, or someone else, it doesn't matter.
+    fn _unmap_window(&mut self, window_id: xcb::Window) {
+        // Unmap / destroy event shouldn't be generated by ourselves (we toggle tracking to ensure this).
         // We can safely assume that we should just remove whatever Window from whatever workspace it may be in
-        if let Some((ws, idx)) = self.desktop.contains_mut(event.window()) {
-            ws.window_del(&self.conn, &self.screen, idx, event.window());
+        if let Some((ws, idx)) = self.desktop.contains_mut(window_id) {
+            ws.window_del(&self.conn, &self.screen, idx, window_id);
         } else {
-            warn!("Received destroy notify event for non-tracked window!");
+            debug!("Recieved unmap/destroy notify event for non-tracked window!");
         }
     }
 
     fn on_enter_notify(&mut self, event: &xcb::EnterNotifyEvent) {
         debug!("on_enter_notify: {}", event.event());
 
+        // We only care about normal / ungrab events
+        if !(event.mode() as u32 == xcb::NOTIFY_MODE_NORMAL ||
+             event.mode() as u32 == xcb::NOTIFY_MODE_UNGRAB) {
+            return;
+        }
+
         // We should only receive these from child windows we've tracked, so if in current workspace we set input focus
         if self.desktop.current().windows.contains(event.event()).is_some() {
             self.conn.set_input_focus(event.event());
         } else {
-            warn!("Received enter notify event for window either not in current workspace or non-tracked!");
+            debug!("Received enter notify event for window either not in current workspace or non-tracked!");
         }
     }
 
@@ -323,7 +349,6 @@ impl<'a> WM<'a> {
     fn on_key_press(&mut self, event: &xcb::KeyPressEvent) {
         // Decode KeyEvent
         let (press_mask, press_key) = self.conn.lookup_keysym(event);
-
         debug!("on_key_press: {} {}", press_mask, press_key);
 
         // Try get function for keybind
@@ -344,6 +369,8 @@ impl<'a> WM<'a> {
 
     pub fn kill(&mut self) {
         info!("Killing");
+
+        // Unset the running flag
         self.running = false;
     }
 }

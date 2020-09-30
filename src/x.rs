@@ -1,6 +1,6 @@
 use crate::helper;
 
-use xcb_util::cursor;
+use xcb_util::{cursor, ewmh, icccm};
 use xcb_util::keysyms::KeySymbols;
 
 pub enum CursorIndex {
@@ -12,24 +12,53 @@ pub trait XWindow {
     fn set(&mut self, x: i32, y: i32, width: i32, height: i32);
 }
 
+pub struct Atoms {
+    pub WM_DELETE_WINDOW:       xcb::Atom,
+    pub WM_PROTOCOLS:           xcb::Atom,
+    pub WM_WINDOW_TYPE_NORMAL:  xcb::Atom,
+    pub WM_WINDOW_TYPE_DIALOG:  xcb::Atom,
+    pub WM_WINDOW_TYPE_TOOLBAR: xcb::Atom,
+    pub WM_WINDOW_TYPE_UTILITY: xcb::Atom,
+    pub WM_WINDOW_TYPE_SPLASH:  xcb::Atom,
+}
+
 pub struct XConn<'a> {
     // X server connection
-    pub conn: &'a xcb::Connection,
+    pub conn: &'a ewmh::Connection,
 
     // Stored loaded cursor ids
     cursors: [u32; 1],
 
     // KeySymbol lookup object
     key_syms: KeySymbols<'a>,
+
+    // Interned atoms
+    pub atoms: Atoms,
 }
 
 impl<'a> XConn<'a> {
-    pub fn new(conn: &'a xcb::Connection) -> Self {
-        Self {
-            conn:             conn,
-            cursors:          [0; 1],
-            key_syms:         KeySymbols::new(conn),
-        }
+    pub fn new(conn: &'a ewmh::Connection) -> Self {
+        // Create new atoms object
+        let atoms = Atoms {
+            WM_DELETE_WINDOW:       xcb::intern_atom(conn, false, "WM_DELETE_WINDOW").get_reply().expect("Interning WM_DELETE_WINDOW atom").atom(),
+            WM_PROTOCOLS:           conn.WM_PROTOCOLS(),
+            WM_WINDOW_TYPE_NORMAL:  conn.WM_WINDOW_TYPE_NORMAL(),
+            WM_WINDOW_TYPE_DIALOG:  conn.WM_WINDOW_TYPE_DIALOG(),
+            WM_WINDOW_TYPE_TOOLBAR: conn.WM_WINDOW_TYPE_TOOLBAR(),
+            WM_WINDOW_TYPE_UTILITY: conn.WM_WINDOW_TYPE_UTILITY(),
+            WM_WINDOW_TYPE_SPLASH:  conn.WM_WINDOW_TYPE_SPLASH(),
+        };
+
+        // Create new Self
+        let new = Self {
+            conn:     conn,
+            cursors:  [0; 1],
+            key_syms: KeySymbols::new(conn),
+            atoms:    atoms,
+        };
+
+        // Return the new Self
+        return new;
     }
 
     pub fn create_core_cursor(&mut self, cursor: CursorIndex, cursor_glyph: u16) {
@@ -48,9 +77,18 @@ impl<'a> XConn<'a> {
         self.change_window_attributes(window_id, &helper::values_attributes_cursor(cursor_id));
     }
 
+    pub fn set_supported(&self, screen_idx: i32, atoms: &[xcb::Atom]) {
+        ewmh::set_supported(self.conn, screen_idx, &atoms);
+    }
+
     pub fn get_setup(&self) -> xcb::Setup {
         debug!("Getting setup");
         return self.conn.get_setup();
+    }
+
+    pub fn query_tree(&self, window_id: xcb::Window) -> Vec<xcb::Window> {
+        debug!("Querying tree");
+        return xcb::query_tree(self.conn, window_id).get_reply().expect("Querying tree").children().to_owned();
     }
 
     pub fn map_window(&self, window_id: xcb::Window) {
@@ -83,9 +121,32 @@ impl<'a> XConn<'a> {
         xcb::set_input_focus(self.conn, xcb::INPUT_FOCUS_POINTER_ROOT as u8, window_id, xcb::CURRENT_TIME);
     }
 
-    pub fn kill_client(&self, window_id: xcb::Window) {
-        debug!("Killing client window: {}", window_id);
-        xcb::kill_client(self.conn, window_id);
+    pub fn destroy_window(&self, window_id: xcb::Window) {
+        debug!("Destroying window: {}", window_id);
+
+        if self.get_wm_protocols(window_id).contains(&self.atoms.WM_DELETE_WINDOW) {
+            // Window support ICCCM method of WM_DELETE_WINDOW
+            debug!("Destroy window via ICCCM WM_DELETE_WINDOW");
+
+            // Create client message data
+            let msg_data = xcb::ClientMessageData::from_data32([self.atoms.WM_DELETE_WINDOW, xcb::CURRENT_TIME, 0, 0, 0]);
+
+            // Create event from message data
+            let event = xcb::ClientMessageEvent::new(32, window_id, self.atoms.WM_PROTOCOLS, msg_data);
+
+            // Send the event!
+            xcb::send_event(
+                self.conn,                // connection
+                false,                    // propagate?
+                window_id,                // destination window
+                xcb::EVENT_MASK_NO_EVENT, // event mask
+                &event,                   // event object
+            );
+        } else {
+            // Use plain-old X destroy window
+            debug!("Destroy window via xcb_destroy_window");
+            xcb::destroy_window(self.conn, window_id);
+        }
     }
 
     pub fn grab_key(&self, window_id: xcb::Window, mask: xcb::ModMask, keysym: xcb::Keysym) {
@@ -170,6 +231,19 @@ impl<'a> XConn<'a> {
                 return None;
             },
         }
+    }
+
+    pub fn get_window_attributes(&self, window_id: xcb::Window) -> xcb::GetWindowAttributesReply {
+        debug!("Getting attributes for window: {}", window_id);
+        return xcb::get_window_attributes(self.conn, window_id).get_reply().expect("Getting window geometry");
+    }
+
+    pub fn get_wm_protocols(&self, window_id: xcb::Window) -> Vec<xcb::Atom> {
+        return icccm::get_wm_protocols(self.conn, window_id, self.conn.WM_PROTOCOLS()).get_reply().expect("Getting wm protocols").atoms().to_owned();
+    }
+
+    pub fn get_wm_window_type(&self, window_id: xcb::Window) -> Vec<xcb::Atom> {
+        return ewmh::get_wm_window_type(self.conn, window_id).get_reply().expect("Getting wm window type").atoms().to_owned();
     }
 
     pub fn query_pointer(&self, window_id: xcb::Window) -> (i32, i32, xcb::Window) {

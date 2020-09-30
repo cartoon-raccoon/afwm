@@ -15,6 +15,7 @@ use wm::WM;
 
 use std::env;
 use std::process;
+use xcb_util::ewmh;
 
 fn print_version() {
     println!(
@@ -67,8 +68,11 @@ fn main() {
     debug!("Registered OS signal hook");
 
     // Try connect to xserver
-    let (conn, screen_idx) = xcb::Connection::connect(None).expect("Failed to connect to xserver");
+    let (conn, screen_idx) = xcb::Connection::connect(None).expect("Failed to connect to X server");
     debug!("Connected to X server");
+
+    // Wrap connection in EWMH connection
+    let conn = ewmh::Connection::connect(conn).map_err(|(err, _)| { err }).expect("Failed to get EWMH connection");
 
     // Create new window manager object
     let mut wm = WM::register(&conn, screen_idx);

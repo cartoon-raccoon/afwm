@@ -22,7 +22,7 @@ pub const MODKEY: u32 = xproto::MOD_MASK_4;
 // Key binds of tuple: (mask, key, function)
 pub const KEYBINDS: &[(xcb::ModMask, xcb::Keysym, fn(&mut WM))] = &[
     // Dmenu
-    (MODKEY, keysym::XK_p, |_|{ run(&["dmenu_run"]) }),
+    (MODKEY, keysym::XK_p, |_|{ run(&["dmenu_run", "-fn", "Ubuntu Mono:size=12", "-nb", "#1d1f21", "-nf", "#66d9ef", "-sb", "#1d1f21", "-sf", "#66d9ef"]) }),
 
     // Backlight keys
     (0, keysym::XF86XK_MonBrightnessUp,   |_|{ run(&["xbacklight", "-inc", "5"]) }),
@@ -79,7 +79,7 @@ pub const KEYBINDS: &[(xcb::ModMask, xcb::Keysym, fn(&mut WM))] = &[
 // If there is a currently focused window, send a kill client command via X
 fn close_focused_window(wm: &mut WM) {
     if let Some(focused) = wm.desktop.current_mut().windows.focused() {
-        wm.conn.kill_client(focused.id());
+        wm.conn.destroy_window(focused.id());
     }
 }
 
