@@ -67,30 +67,8 @@ impl<'a> WM<'a> {
         // Perform initial screen geometry fetch
         xconn.update_geometry(&mut screen);
 
-        // Create Desktop object
-        let mut desktop = Desktop::default();
-
-        // Perform initial client fetch
-        for existing_id in xconn.query_tree(root_id).iter() {
-            // Get attributes for id
-            let attr = xconn.get_window_attributes(*existing_id);
-
-            // Ignore windows in override redirect mode / invisible
-            if attr.override_redirect() || attr.map_state() as u32 != xcb::MAP_STATE_VIEWABLE {
-                continue;
-            }
-            debug!("Adding existing window: {}", *existing_id);
-
-            // Create Window from existing id, get geometry
-            let mut window = Window::from(*existing_id);
-            xconn.update_geometry(&mut window);
-
-            // Add window to current workspace!
-            desktop.current_mut().windows.add(window);
-        }
-
-        // Return new WM object
-        return Self {
+        // Create new Self
+        let mut new = Self {
             conn: xconn,
             desktop: Desktop::default(),
             screen:  screen,
@@ -100,6 +78,27 @@ impl<'a> WM<'a> {
             selected: None,
             running: true,
         };
+
+        // Perform initial client fetch
+        for existing_id in new.conn.query_tree(root_id).iter() {
+            // Shadow the reference with actual value
+            let existing_id = *existing_id;
+
+            // Get attributes for id
+            let attr = new.conn.get_window_attributes(existing_id);
+
+            // Ignore windows in override redirect mode / invisible
+            if attr.override_redirect() || attr.map_state() as u32 != xcb::MAP_STATE_VIEWABLE {
+                continue;
+            }
+            debug!("Adding existing window: {}", existing_id);
+
+            // Map window
+            new._map_window(existing_id);
+        }
+
+        // Return new Self :)
+        return new;
     }
 
     pub fn run(&mut self) {
@@ -197,27 +196,32 @@ impl<'a> WM<'a> {
         debug!("on_map_request: {}", event.window());
 
         if self.desktop.contains(event.window()).is_none() {
-            // Window not already tracked! Check it's one of the types we _want_ to track
-            let window_type = self.conn.get_wm_window_type(event.window());
-            if !(window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_NORMAL)  ||
-                 window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_DIALOG)  ||
-                 window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_TOOLBAR) ||
-                 window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_UTILITY) ||
-                 window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_SPLASH)) {
-                // We don't want to track this, but we still want it to be displayed
-                self.conn.map_window(event.window());
-                return;
-            }
-
-            // Create new window
-            let mut window = Window::from(event.window());
-
-            // Fetch window geometry
-            self.conn.update_geometry(&mut window);
-
-            // Add the Window to the current workspace
-            self.desktop.current_mut().window_add(&self.conn, &self.screen, window);
+            // Window not already tracked! Map!
+            self._map_window(event.window());
         }
+    }
+
+    fn _map_window(&mut self, window_id: xcb::Window) {
+        // Check it's one of the types we _want_ to track
+        let window_type = self.conn.get_wm_window_type(window_id);
+        if !(window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_NORMAL)  ||
+             window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_DIALOG)  ||
+             window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_TOOLBAR) ||
+             window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_UTILITY) ||
+             window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_SPLASH)) {
+            // We don't want to track this, but we still want it to be displayed
+            self.conn.map_window(window_id);
+            return;
+        }
+
+        // Create new window
+        let mut window = Window::from(window_id);
+
+        // Fetch window geometry
+        self.conn.update_geometry(&mut window);
+
+        // Add the Window to the current workspace
+        self.desktop.current_mut().window_add(&self.conn, &self.screen, window);        
     }
 
     fn on_unmap_notify(&mut self, event: &xcb::UnmapNotifyEvent) {

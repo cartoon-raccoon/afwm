@@ -117,46 +117,12 @@ impl Windows {
         self.0.remove(idx);
     }
 
-    pub fn swap(&mut self, idx_1: usize, idx_2: usize) {
-        self.0.swap(idx_1, idx_2);
-    }
-
-    pub fn to_front(&mut self, idx: usize) {
-        // Get Window at index and take ownership
-        let window = *self.0.get(idx).unwrap();
-
-        // Remove the window at this index
-        self.0.remove(idx);
-
-        // Add window back to self
-        self.0.push_front(window);
-    }
-
-    pub fn to_back(&mut self, idx: usize) {
-        // Get Window at index and take ownership
-        let window = *self.0.get(idx).unwrap();
-
-        // Remove the window at this index
-        self.0.remove(idx);
-
-        // Add window back to self
-        self.0.push_back(window);
-    }
-
     pub fn iter(&self) -> impl Iterator<Item = &Window> {
         return self.0.iter();
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Window> {
-        return self.0.iter_mut();
-    }
-
     pub fn iter_rev(&self) -> impl Iterator<Item = &Window> {
         return self.0.iter().rev();
-    }
-
-    pub fn iter_rev_mut(&mut self) -> impl Iterator<Item = &mut Window> {
-        return self.0.iter_mut().rev();
     }
 
     pub fn get(&self, idx: usize) -> Option<&Window> {
