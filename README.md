@@ -9,7 +9,7 @@ Floating only (for now).
 
 Set your key binds in `src/config.rs`.
 
-Keepin' it simple. LOC count: `1009`
+Keepin' it simple. LOC count: `1010`
 
 ![screenshot](https://github.com/grufwub/afwm/raw/master/screenshot.png)
 
