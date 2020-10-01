@@ -23,7 +23,7 @@ Example xinitrc:
 ```sh
 #!/bin/sh
 
-lemonbar &
+(while true; do echo "$(date +%T)"; sleep 1; done) | lemonbar -f ' - 12' &
 
 startx afwm
 ```
