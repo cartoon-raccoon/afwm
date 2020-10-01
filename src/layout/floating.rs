@@ -12,14 +12,8 @@ pub fn activate(ws: &mut Workspace, conn: &XConn, screen: &Screen) {
 
     // Iterate windows
     for window in ws.windows.iter_rev() {
-        // Disable events before mapping the window
-        conn.change_window_attributes(window.id(), &helper::values_attributes_no_events());
-
-        // Map the window back to the display
+        // Map the window to the display
         conn.map_window(window.id());
-
-        // Enable child events again
-        conn.change_window_attributes(window.id(), &helper::values_attributes_child_events());
     }
 
     // Tell X to focus our focused window
