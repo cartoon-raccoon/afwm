@@ -9,7 +9,6 @@ use xcb::xproto;
 use x11::keysym;
 
 // Geometry
-pub const BAR_SIZE: u16 = 18;
 pub const WIN_WIDTH_MIN: u16 = 200;
 pub const WIN_HEIGHT_MIN: u16 = 100;
 

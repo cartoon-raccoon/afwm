@@ -12,7 +12,7 @@ pub trait XWindow {
     fn set(&mut self, x: i32, y: i32, width: i32, height: i32);
 }
 
-pub struct Atoms {
+pub struct InternedAtoms {
     pub WM_DELETE_WINDOW:       xcb::Atom,
     pub WM_PROTOCOLS:           xcb::Atom,
     pub WM_WINDOW_TYPE_NORMAL:  xcb::Atom,
@@ -33,13 +33,13 @@ pub struct XConn<'a> {
     key_syms: KeySymbols<'a>,
 
     // Interned atoms
-    pub atoms: Atoms,
+    pub atoms: InternedAtoms,
 }
 
 impl<'a> XConn<'a> {
     pub fn new(conn: &'a ewmh::Connection) -> Self {
         // Create new atoms object
-        let atoms = Atoms {
+        let atoms = InternedAtoms {
             WM_DELETE_WINDOW:       xcb::intern_atom(conn, false, "WM_DELETE_WINDOW").get_reply().expect("Interning WM_DELETE_WINDOW atom").atom(),
             WM_PROTOCOLS:           conn.WM_PROTOCOLS(),
             WM_WINDOW_TYPE_NORMAL:  conn.WM_WINDOW_TYPE_NORMAL(),
@@ -250,6 +250,12 @@ impl<'a> XConn<'a> {
         debug!("Querying pointer location for window: {}", window_id);
         let pointer = xcb::query_pointer(self.conn, window_id).get_reply().expect("Querying window pointer location");
         return (pointer.root_x() as i32, pointer.root_y() as i32, pointer.child())
+    }
+
+    #[cfg(debug_assertions)]
+    pub fn _get_atom_name(&self, atom: xcb::Atom) -> String {
+        // don't debug log because it's being used for debug anyway
+        return xcb::get_atom_name(self.conn, atom).get_reply().expect("Getting atom name").name().to_owned();
     }
 
     pub fn lookup_keysym(&self, event: &xcb::KeyPressEvent) -> (xcb::ModMask, xcb::Keysym) {

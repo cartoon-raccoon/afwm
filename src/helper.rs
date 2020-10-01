@@ -47,8 +47,8 @@ pub fn values_attributes_root() -> [(u32, u32); 1] {
 pub fn values_attributes_child_events() -> [(u32, u32); 1] {
     debug!("VALUES: attributes child events");
     return [(xcb::CW_EVENT_MASK,
-        xcb::EVENT_MASK_ENTER_WINDOW|          // -> Self EnterNotify events
-        xcb::EVENT_MASK_STRUCTURE_NOTIFY       // -> Self CirculateNotify, ConfigureNotify, DestroyNotify, GravityNotify, MapNotify, ReparentNotify, UnmapNotify events
+        xcb::EVENT_MASK_ENTER_WINDOW|    // -> Self EnterNotify events
+        xcb::EVENT_MASK_STRUCTURE_NOTIFY // -> Self CirculateNotify, ConfigureNotify, DestroyNotify, GravityNotify, MapNotify, ReparentNotify, UnmapNotify events
     )];
 }
 

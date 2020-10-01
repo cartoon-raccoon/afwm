@@ -5,6 +5,8 @@ use crate::x::{XConn, XWindow};
 
 use std::collections::VecDeque;
 
+const MIN_SCREEN_ONSCREEN: i32 = 10;
+
 fn ensure_in_bounds(val: &mut i32, min: i32, max: i32) {
     if *val < min {
         *val = min;
@@ -64,7 +66,7 @@ impl Window {
         self.height += dy;
 
         // Ensure the window sizes are within set bounds
-        ensure_in_bounds(&mut self.width, WIN_WIDTH_MIN as i32, screen.x + screen.width - self.x);
+        ensure_in_bounds(&mut self.width,  WIN_WIDTH_MIN  as i32, screen.x + screen.width  - self.x);
         ensure_in_bounds(&mut self.height, WIN_HEIGHT_MIN as i32, screen.y + screen.height - self.y);
 
         // Send new window configuration to X
@@ -78,8 +80,8 @@ impl Window {
         self.y += dy;
 
         // Ensure the window coords are within set bounds (still pick-up-able)
-        ensure_in_bounds(&mut self.x, screen.x - self.width  + 10, screen.x + screen.width  - 10);
-        ensure_in_bounds(&mut self.y, screen.y - self.height + 10, screen.y + screen.height - 10);
+        ensure_in_bounds(&mut self.x, screen.x - self.width  + MIN_SCREEN_ONSCREEN, screen.x + screen.width  - MIN_SCREEN_ONSCREEN);
+        ensure_in_bounds(&mut self.y, screen.y - self.height + MIN_SCREEN_ONSCREEN, screen.y + screen.height - MIN_SCREEN_ONSCREEN);
 
         // Send new window configuration to X
         conn.configure_window(self.id, &helper::values_configure_move(self.x as u32, self.y as u32));

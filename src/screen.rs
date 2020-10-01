@@ -1,4 +1,3 @@
-use crate::config::BAR_SIZE;
 use crate::x::XWindow;
 
 pub struct Screen {
@@ -19,9 +18,9 @@ impl XWindow for Screen {
 
     fn set(&mut self, x: i32, y: i32, width: i32, height: i32) {
         self.x = x;
-        self.y = y + (BAR_SIZE as i32);
-        self.width = width; 
-        self.height = height - (BAR_SIZE as i32);
+        self.y = y;
+        self.width = width;
+        self.height = height;
     }
 }
 

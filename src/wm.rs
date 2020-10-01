@@ -147,9 +147,9 @@ impl<'a> WM<'a> {
     }
 
     fn on_configure_request(&mut self, event: &xcb::ConfigureRequestEvent) {
-        debug!("on_configure_request: {}", event.window());
-
         if let Some((ws, idx)) = self.desktop.contains_mut(event.window()) {
+            debug!("on_configure_request: {}", event.window());
+
             // Get the referenced window at index
             let window = ws.windows.get_mut(idx).unwrap();
 
@@ -183,16 +183,18 @@ impl<'a> WM<'a> {
             // Configure window using filtered values
             self.conn.configure_window(event.window(), &values);
         } else {
-            debug!("Received configure request event for non-tracked window!");
+            debug!("on_configure_request for untracked window: {}", event.window());
         }
     }
 
     fn on_map_request(&mut self, event: &xcb::MapRequestEvent) {
-        debug!("on_map_request: {}", event.window());
-
         if self.desktop.contains(event.window()).is_none() {
+            debug!("on_map_request: {}", event.window());
+
             // Window not already tracked! Map!
             self._map_window(event.window());
+        } else {
+            debug!("on_map_request for already tracked window: {}", event.window());
         }
     }
 
@@ -235,13 +237,11 @@ impl<'a> WM<'a> {
         if let Some((ws, idx)) = self.desktop.contains_mut(window_id) {
             ws.window_del(&self.conn, &self.screen, idx, window_id);
         } else {
-            debug!("Recieved unmap/destroy notify event for non-tracked window!");
+            debug!("on_unmap/destroy_notify for untracked window: {}", window_id);
         }
     }
 
     fn on_enter_notify(&mut self, event: &xcb::EnterNotifyEvent) {
-        debug!("on_enter_notify: {}", event.event());
-
         // We only care about normal / ungrab events
         if !(event.mode() as u32 == xcb::NOTIFY_MODE_NORMAL ||
              event.mode() as u32 == xcb::NOTIFY_MODE_UNGRAB) {
@@ -250,9 +250,10 @@ impl<'a> WM<'a> {
 
         // We should only receive these from child windows we've tracked, so if in current workspace we set input focus
         if self.desktop.current().windows.contains(event.event()).is_some() {
+            debug!("on_enter_notify: {}", event.event());
             self.conn.set_input_focus(event.event());
         } else {
-            debug!("Received enter notify event for window either not in current workspace or non-tracked!");
+            debug!("on_enter_notify for window untracked / not in current workspace: {}", event.event());
         }
     }
 
