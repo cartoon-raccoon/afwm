@@ -13,6 +13,21 @@ Keepin' it simple. LOC count: `1009`
 
 ![screenshot](https://github.com/grufwub/afwm/raw/master/screenshot.png)
 
+# Usage
+
+Window dragging: `MOD` + left click mouse
+
+Window resizing: `MOD` + right click mouse
+
+Example xinitrc:
+```sh
+#!/bin/sh
+
+lemonbar &
+
+startx afwm
+```
+
 # Issues
 
 - MOD+Tab window cycling ignores currently focused window
