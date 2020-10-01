@@ -5,6 +5,7 @@ use crate::screen::Screen;
 use crate::windows::Window;
 use crate::x::{CursorIndex, XConn, XWindow};
 
+use std::process;
 use xcb_util::{cursor, ewmh};
 
 #[derive(PartialEq)]
@@ -27,9 +28,6 @@ pub struct WM<'a> {
     last_mouse_x: i32,
     last_mouse_y: i32,
     selected: Option<xcb::Window>,
-
-    // Should we continue running?
-    running: bool,
 }
 
 impl<'a> WM<'a> {
@@ -76,7 +74,6 @@ impl<'a> WM<'a> {
             last_mouse_x: 0,
             last_mouse_y: 0,
             selected: None,
-            running: true,
         };
 
         // Perform initial client fetch
@@ -107,7 +104,7 @@ impl<'a> WM<'a> {
         // Perform an initial activation of current workspace in case contains any windows
         self.desktop.current_mut().activate(&self.conn, &self.screen);
 
-        while self.running {
+        loop {
             // Get next event
             let event = self.conn.next_event();
 
@@ -130,8 +127,6 @@ impl<'a> WM<'a> {
                 }
             }
         }
-
-        info!("Finished running");
     }
 
     fn on_configure_notify(&mut self, event: &xcb::ConfigureNotifyEvent) {
@@ -374,7 +369,7 @@ impl<'a> WM<'a> {
     pub fn kill(&mut self) {
         info!("Killing");
 
-        // Unset the running flag
-        self.running = false;
+        // Kill via standard exit
+        process::exit(0);
     }
 }
