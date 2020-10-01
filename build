@@ -6,6 +6,8 @@ cargo_build() {
     RUSTFLAGS="-C link-args=-s" cargo build --release $@ > "$LOGFILE" 2>&1
 }
 
+rm -rf 'target/release'
+
 if [ ! -z "$1" ]; then
     echo "Building for target "${1}"... (see "${LOGFILE}" for output)"
     cargo_build --target="$1"
