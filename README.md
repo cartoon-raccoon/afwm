@@ -35,7 +35,8 @@ startx afwm
 - full-screen windows (e.g. games) not working
 
 - opening new Firefox windows doesn't map them to the screen until the current
-  window is moved to another workspace
+  window is moved to another workspace. possibly WM_HINTS related, A LOT of
+  these are sent upon Firefox opening
 
 # Todos
 
