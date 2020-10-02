@@ -27,21 +27,3 @@ Example xinitrc:
 
 startx afwm
 ```
-
-# Issues
-
-- MOD+Tab window cycling ignores currently focused window
-
-- full-screen windows (e.g. games) not working
-
-- opening new Firefox windows doesn't map them to the screen until the current
-  window is moved to another workspace. possibly WM_HINTS related, A LOT of
-  these are sent upon Firefox opening
-
-# Todos
-
-- add randr support
-
-- add tiling mode + window gaps in tiling mode
-
-- output window manager state to file (for lemonbar, etc)
