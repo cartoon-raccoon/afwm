@@ -78,53 +78,78 @@ impl<'a> XConn<'a> {
     }
 
     pub fn set_supported(&self, screen_idx: i32, atoms: &[xcb::Atom]) {
+        debug!("Set supported atoms for screen: {}\n{}", screen_idx, self._atom_slice_as_string(atoms));
+
+        // Set supplied atoms slice as all supported
         ewmh::set_supported(self.conn, screen_idx, &atoms);
     }
 
     pub fn get_setup(&self) -> xcb::Setup {
         debug!("Getting setup");
+
+        // Return the current X connection's setup
         return self.conn.get_setup();
     }
 
     pub fn query_tree(&self, window_id: xcb::Window) -> Vec<xcb::Window> {
         debug!("Querying tree");
+
+        // Query tree for window. Don't bother checking returning option, we only ever query tree for root (for now...)
         return xcb::query_tree(self.conn, window_id).get_reply().expect("Querying tree").children().to_owned();
     }
 
     pub fn map_window(&self, window_id: xcb::Window) {
         debug!("Mapping window: {}", window_id);
+
+        // Map window. Don't bother checking, if it failed, it failed :shrug:
         xcb::map_window(self.conn, window_id);
     }
 
     pub fn unmap_window(&self, window_id: xcb::Window) {
         debug!("Unmapping window: {}", window_id);
+
+        // Unmap window. Don't bother checking, if it failed, it failed :shrug:
         xcb::unmap_window(self.conn, window_id);
     }
 
     pub fn configure_window(&self, window_id: xcb::Window, values: &[(u16, u32)]) {
         debug!("Configuring window: {}", window_id);
+
+        // Configure window. Don't bother checking, if it failed, it failed :shrug:
         xcb::configure_window(self.conn, window_id, values);
     }
 
     pub fn change_window_attributes(&self, window_id: xcb::Window, values: &[(u32, u32)]) {
         debug!("Changing window attributes: {}", window_id);
+
+        // Change window attributes. Don't bother checking, if it failed, it failed :shrug:
         xcb::change_window_attributes(self.conn, window_id, values);
     }
 
     pub fn change_window_attributes_checked(&self, window_id: xcb::Window, values: &[(u32, u32)]) {
         debug!("Changing window attributes: {}", window_id);
+
+        // Change window attributes, ensure it goes through okay!
         xcb::change_window_attributes_checked(self.conn, window_id, values).request_check().expect("Changing window attributes");
     }
 
     pub fn set_input_focus(&self, window_id: xcb::Window) {
         debug!("Setting input focus window: {}", window_id);
+
+        // Set input focus on window. Don't bother checking, if it failed, it failed :shrug:
         xcb::set_input_focus(self.conn, xcb::INPUT_FOCUS_POINTER_ROOT as u8, window_id, xcb::CURRENT_TIME);
     }
 
     pub fn destroy_window(&self, window_id: xcb::Window) {
         debug!("Destroying window: {}", window_id);
 
-        if self.get_wm_protocols(window_id).contains(&self.atoms.WM_DELETE_WINDOW) {
+        // First check we can get the protocols for window, if not then it was probably closed already
+        let protocols = self.get_wm_protocols(window_id);
+        if protocols.is_none() { return; }
+        let protocols = protocols.unwrap();
+
+        // Now check how best to destroy window
+        if protocols.contains(&self.atoms.WM_DELETE_WINDOW) {
             // Window support ICCCM method of WM_DELETE_WINDOW
             debug!("Destroy window via ICCCM WM_DELETE_WINDOW");
 
@@ -162,7 +187,7 @@ impl<'a> XConn<'a> {
         }
         let code = code.unwrap();
 
-        // Register key code to grab with X
+        // Register key code to grab with X. We don't bother checking as only ever for root window
         xcb::grab_key(
             self.conn,
             false,                       // owner events (a.k.a don't pass on events to root window)
@@ -176,6 +201,8 @@ impl<'a> XConn<'a> {
 
     pub fn grab_button(&self, window_id: xcb::Window, mask: xcb::ButtonMask, button: xcb::ButtonIndex, modmask: xcb::ModMask, confine: bool) {
         debug!("Grabbing button {} for window: {}", window_id, button);
+
+        // Register button to grab with X. We don't bother checking as only ever for root window
         xcb::grab_button(
             self.conn,
             false,                                       // owner events (a.k. don't pass on events to root window)
@@ -192,6 +219,8 @@ impl<'a> XConn<'a> {
 
     pub fn grab_pointer(&self, window_id: xcb::Window, mask: xcb::EventMask, confine: bool) {
         debug!("Grabbing pointer for window: {}", window_id);
+
+        // Register to grab pointer. We don't bother checking as only ever for root window
         xcb::grab_pointer(
             self.conn,
             false,                                       // owner events (a.k. don't pass on events to root window)
@@ -207,6 +236,8 @@ impl<'a> XConn<'a> {
 
     pub fn ungrab_pointer(&self) {
         debug!("Ungrabbing pointer");
+
+        // Unregister grabbing the pointer. We don't bother checking as only ever for root window
         xcb::ungrab_pointer(self.conn, xcb::CURRENT_TIME);
     }
 
@@ -226,28 +257,50 @@ impl<'a> XConn<'a> {
         debug!("Getting geometry for window: {}", window_id);
         match xcb::get_geometry(self.conn, window_id).get_reply() {
             Ok(dimens) => return Some((dimens.x() as i32, dimens.y() as i32, dimens.width() as i32, dimens.height() as i32)),
-            Err(_) => {
-                warn!("Failed getting window geometry for {}. Was window destroyed and not yet unmapped?", window_id);
+            Err(err) => {
+                warn!("Failed getting window geometry for {} ({}). Was window closed and not yet unmapped?", window_id, err);
                 return None;
             },
         }
     }
 
-    pub fn get_window_attributes(&self, window_id: xcb::Window) -> xcb::GetWindowAttributesReply {
+    pub fn get_window_attributes(&self, window_id: xcb::Window) -> Option<xcb::GetWindowAttributesReply> {
         debug!("Getting attributes for window: {}", window_id);
-        return xcb::get_window_attributes(self.conn, window_id).get_reply().expect("Getting window geometry");
+        match xcb::get_window_attributes(self.conn, window_id).get_reply() {
+            Ok(reply) => return Some(reply),
+            Err(err) => {
+                warn!("Failed getting attributes for window {} ({}). Was window closed and not yet unmapped?", window_id, err);
+                return None;
+            }
+        }
     }
 
-    pub fn get_wm_protocols(&self, window_id: xcb::Window) -> Vec<xcb::Atom> {
-        return icccm::get_wm_protocols(self.conn, window_id, self.conn.WM_PROTOCOLS()).get_reply().expect("Getting wm protocols").atoms().to_owned();
+    pub fn get_wm_protocols(&self, window_id: xcb::Window) -> Option<Vec<xcb::Atom>> {
+        debug!("Getting wm protocols for window: {}", window_id);
+        match icccm::get_wm_protocols(self.conn, window_id, self.atoms.WM_PROTOCOLS).get_reply() {
+            Ok(reply) => return Some(reply.atoms().to_owned()),
+            Err(err) => {
+                warn!("Failed getting wm protocols for window {} ({}). Was window closed and not yet unmapped?", window_id, err);
+                return None
+            },
+        }
     }
 
-    pub fn get_wm_window_type(&self, window_id: xcb::Window) -> Vec<xcb::Atom> {
-        return ewmh::get_wm_window_type(self.conn, window_id).get_reply().expect("Getting wm window type").atoms().to_owned();
+    pub fn get_wm_window_type(&self, window_id: xcb::Window) -> Option<Vec<xcb::Atom>> {
+        debug!("Getting wm type for window: {}", window_id);
+        match ewmh::get_wm_window_type(self.conn, window_id).get_reply() {
+            Ok(reply) => return Some(reply.atoms().to_owned()),
+            Err(err) => {
+                warn!("Failed getting wm type for window {} ({}). Was window closed and not yet unmapped?", window_id, err);
+                return None
+            },
+        }
     }
 
     pub fn query_pointer(&self, window_id: xcb::Window) -> (i32, i32, xcb::Window) {
         debug!("Querying pointer location for window: {}", window_id);
+
+        // We don't bother requesting check here as this is only ever used for root window
         let pointer = xcb::query_pointer(self.conn, window_id).get_reply().expect("Querying window pointer location");
         return (pointer.root_x() as i32, pointer.root_y() as i32, pointer.child())
     }
@@ -256,6 +309,16 @@ impl<'a> XConn<'a> {
     pub fn _get_atom_name(&self, atom: xcb::Atom) -> String {
         // don't debug log because it's being used for debug anyway
         return xcb::get_atom_name(self.conn, atom).get_reply().expect("Getting atom name").name().to_owned();
+    }
+
+    #[cfg(debug_assertions)]
+    pub fn _atom_slice_as_string(&self, atoms: &[xcb::Atom]) -> String {
+        // don't debug log because it's being used for debug anyway
+        let mut fmt = String::new();
+        for a in atoms.iter() {
+            fmt.push_str(&format!("> {}\n", self._get_atom_name(*a)));
+        }
+        return fmt;
     }
 
     pub fn lookup_keysym(&self, event: &xcb::KeyPressEvent) -> (xcb::ModMask, xcb::Keysym) {

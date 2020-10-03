@@ -81,8 +81,10 @@ impl<'a> WM<'a> {
             // Shadow the reference with actual value
             let existing_id = *existing_id;
 
-            // Get attributes for id
+            // Get attributes for id. If not there, window was probably closed since query
             let attr = new.conn.get_window_attributes(existing_id);
+            if attr.is_none() { continue; }
+            let attr = attr.unwrap();
 
             // Ignore windows in override redirect mode / invisible
             if attr.override_redirect() || attr.map_state() as u32 != xcb::MAP_STATE_VIEWABLE {
@@ -199,8 +201,12 @@ impl<'a> WM<'a> {
     }
 
     fn _map_window(&mut self, window_id: xcb::Window) {
-        // Check it's one of the types we _want_ to track
+        // Try get window types, if failed then probably closed very quickly
         let window_type = self.conn.get_wm_window_type(window_id);
+        if window_type.is_none() { return; }
+        let window_type = window_type.unwrap();
+
+        // Check it's one of the types we _want_ to track
         if !(window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_NORMAL)  ||
              window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_DIALOG)  ||
              window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_TOOLBAR) ||

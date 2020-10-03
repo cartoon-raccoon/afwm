@@ -37,10 +37,15 @@ pub fn deactivate(ws: &mut Workspace, conn: &XConn) {
 pub fn window_add(ws: &mut Workspace, conn: &XConn, screen: &Screen, window: Window) {
     // Tell X to map and focus the window
     conn.map_window(window.id());
-    conn.set_input_focus(window.id());
 
     // Start tracking events for this window
     conn.change_window_attributes(window.id(), &helper::values_attributes_child_events());
+
+    // Set window ontop
+    conn.configure_window(window.id(), &helper::values_configure_stack_above());
+
+    // Set focused
+    conn.set_input_focus(window.id());
 
     // Internally add
     ws.windows.add(window);
