@@ -241,15 +241,10 @@ impl<'a> XConn<'a> {
         xcb::ungrab_pointer(self.conn, xcb::CURRENT_TIME);
     }
 
-    pub fn update_geometry(&self, window: &mut impl XWindow) -> bool {
-        match self.get_geometry(window.id()) {
-            Some((x, y, width, height)) => {
-                // Update supplied window's geometry, return true
-                window.set(x, y, width, height);
-                return true;
-            },
-
-            None => return false,
+    pub fn update_geometry(&self, window: &mut impl XWindow) {
+        // Try get window geometry for current window, update if so
+        if let Some((x, y, width, height)) = self.get_geometry(window.id()) {
+            window.set(x, y, width, height);
         }
     }
 
