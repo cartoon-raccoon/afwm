@@ -9,7 +9,10 @@ Floating only (for now).
 
 Set your key binds in `src/config.rs`.
 
-Keepin' it simple. LOC count: `1010`
+Keepin' it simple. LOC count: `1043`
+
+Initially inpsired by Lanta (https://github.com/mjkillough/lanta) but very
+quickly became it's own beast.
 
 ![screenshot](https://github.com/grufwub/afwm/raw/master/screenshot.png)
 
@@ -27,3 +30,10 @@ Example xinitrc:
 
 exec afwm
 ```
+
+# Building
+
+`./build` will build the release version for your current default target.
+
+Building the debug version will include _a lot_ of extra debug printing should
+you need it.
