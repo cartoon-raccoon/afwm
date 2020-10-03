@@ -201,20 +201,18 @@ impl<'a> WM<'a> {
     }
 
     fn _map_window(&mut self, window_id: xcb::Window) {
-        // Try get window types, if failed then probably closed very quickly
-        let window_type = self.conn.get_wm_window_type(window_id);
-        if window_type.is_none() { return; }
-        let window_type = window_type.unwrap();
-
-        // Check it's one of the types we _want_ to track
-        if !(window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_NORMAL)  ||
-             window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_DIALOG)  ||
-             window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_TOOLBAR) ||
-             window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_UTILITY) ||
-             window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_SPLASH)) {
-            // We don't want to track this, but we still want it to be displayed
-            self.conn.map_window(window_id);
-            return;
+        // Try get window types so we can check if we ignore it
+        if let Some(window_type) = self.conn.get_wm_window_type(window_id) {
+            if !(window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_NORMAL)  ||
+                 window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_DIALOG)  ||
+                 window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_TOOLBAR) ||
+                 window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_UTILITY) ||
+                 window_type.contains(&self.conn.atoms.WM_WINDOW_TYPE_SPLASH)) {
+                // We don't want to track this, but we still want it to be displayed
+                debug!("Mapping but NOT tracking window: {}", window_id);
+                self.conn.map_window(window_id);
+                return;
+            }
         }
 
         // Create new window

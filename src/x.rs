@@ -274,10 +274,7 @@ impl<'a> XConn<'a> {
         debug!("Getting wm protocols for window: {}", window_id);
         match icccm::get_wm_protocols(self.conn, window_id, self.atoms.WM_PROTOCOLS).get_reply() {
             Ok(reply) => return Some(reply.atoms().to_owned()),
-            Err(err) => {
-                warn!("Failed getting wm protocols for window {} ({}). Was window closed and not yet unmapped?", window_id, err);
-                return None
-            },
+            Err(_) => return None,
         }
     }
 
@@ -285,10 +282,7 @@ impl<'a> XConn<'a> {
         debug!("Getting wm type for window: {}", window_id);
         match ewmh::get_wm_window_type(self.conn, window_id).get_reply() {
             Ok(reply) => return Some(reply.atoms().to_owned()),
-            Err(err) => {
-                warn!("Failed getting wm type for window {} ({}). Was window closed and not yet unmapped?", window_id, err);
-                return None
-            },
+            Err(_) => return None,
         }
     }
 
