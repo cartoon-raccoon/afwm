@@ -12,7 +12,7 @@ Set your key binds in `src/config.rs`.
 Keepin' it simple. LOC count: `1043`
 
 Initially inpsired by Lanta (https://github.com/mjkillough/lanta) but very
-quickly became it's own beast.
+quickly became its own beast.
 
 ![screenshot](https://github.com/grufwub/afwm/raw/master/screenshot.png)
 
