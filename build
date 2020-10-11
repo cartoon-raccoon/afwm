@@ -16,4 +16,7 @@ else
     cargo_build
 fi
 
-[ $? -ne 0 ] && echo 'BUILD FAILED!'
+result=$?
+
+[ $result -ne 0 ] && echo 'BUILD FAILED!'
+exit $result
