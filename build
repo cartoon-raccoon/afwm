@@ -2,12 +2,13 @@
 
 LOGFILE='build.log'
 
-cargo_build() {
-    RUSTFLAGS="-C link-args=-s" cargo build --release $@ > "$LOGFILE" 2>&1
-}
+# Build cmd
+cargo_build() { RUSTFLAGS="-C link-args=-s" cargo build --release $@ > "$LOGFILE" 2>&1; }
 
+# Remove old
 rm -rf 'target/release'
 
+# Either build for default, else build for supplied target
 if [ ! -z "$1" ]; then
     echo "Building for target "${1}"... (see "${LOGFILE}" for output)"
     cargo_build --target="$1"
@@ -16,7 +17,7 @@ else
     cargo_build
 fi
 
+# Print on fail, return exit code
 result=$?
-
 [ $result -ne 0 ] && echo 'BUILD FAILED!'
 exit $result
