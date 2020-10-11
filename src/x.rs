@@ -13,6 +13,7 @@ pub trait XWindow {
 }
 
 pub struct InternedAtoms {
+    pub SUPPORTED:              xcb::Atom,
     pub WM_DELETE_WINDOW:       xcb::Atom,
     pub WM_PROTOCOLS:           xcb::Atom,
     pub WM_WINDOW_TYPE_NORMAL:  xcb::Atom,
@@ -40,6 +41,7 @@ impl<'a> XConn<'a> {
     pub fn new(conn: &'a ewmh::Connection) -> Self {
         // Create new atoms object
         let atoms = InternedAtoms {
+            SUPPORTED:              conn.SUPPORTED(),
             WM_DELETE_WINDOW:       xcb::intern_atom(conn, false, "WM_DELETE_WINDOW").get_reply().expect("Interning WM_DELETE_WINDOW atom").atom(),
             WM_PROTOCOLS:           conn.WM_PROTOCOLS(),
             WM_WINDOW_TYPE_NORMAL:  conn.WM_WINDOW_TYPE_NORMAL(),
@@ -217,20 +219,20 @@ impl<'a> XConn<'a> {
         );
     }
 
-    pub fn grab_pointer(&self, window_id: xcb::Window, mask: xcb::EventMask, confine: bool) {
+    pub fn grab_pointer(&self, window_id: xcb::Window, mask: xcb::EventMask) {
         debug!("Grabbing pointer for window: {}", window_id);
 
         // Register to grab pointer. We don't bother checking as only ever for root window
         xcb::grab_pointer(
             self.conn,
             false,                                       // owner events (a.k. don't pass on events to root window)
-            window_id,                                   //
-            mask as u16,                                 //
-            xcb::GRAB_MODE_ASYNC as u8,                  //
-            xcb::GRAB_MODE_ASYNC as u8,                  //
-            if confine { window_id } else { xcb::NONE }, //
-            xcb::NONE,                                   //
-            xcb::CURRENT_TIME,                           //
+            window_id,                                   // grab window, i.e. where to grab pointer movement
+            mask as u16,                                 // event mask
+            xcb::GRAB_MODE_ASYNC as u8,                  // pointer mode
+            xcb::GRAB_MODE_ASYNC as u8,                  // keyboard mode
+            xcb::NONE,                                   // confine to window
+            xcb::NONE,                                   // cursor to display
+            xcb::CURRENT_TIME,                           // time
         );
     }
 

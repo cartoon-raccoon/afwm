@@ -45,7 +45,14 @@ impl<'a> WM<'a> {
         xconn.change_window_attributes_checked(root_id, &helper::values_attributes_root());
 
         // Set supported atoms
-        xconn.set_supported(screen_idx, &[xconn.atoms.WM_PROTOCOLS, xconn.atoms.WM_DELETE_WINDOW]);
+        xconn.set_supported(
+            screen_idx,
+            &[
+                xconn.atoms.SUPPORTED,
+                xconn.atoms.WM_PROTOCOLS,
+                xconn.atoms.WM_DELETE_WINDOW,
+            ]
+        );
 
         // For configured keybinds, register X to grab keys on the root window
         for (mask, keysym, _) in KEYBINDS {
@@ -110,9 +117,14 @@ impl<'a> WM<'a> {
             // Get next event
             let event = self.conn.next_event();
 
-            // Cast (this is unsafe) and pass event to appropriate function
+            // Cast (this is unsafe) and pass event to appropriate function.
+            //
+            // NOTE:
+            // The 8th bit is set if it is a client event which can mess up
+            // direct response_type()<=>constant comparisons, hence filtering out the
+            // 8th bit value.
             unsafe {
-                match event.response_type() {
+                match event.response_type() & !0x80 {
                     // Handle necessary events
                     xcb::CONFIGURE_NOTIFY => self.on_configure_notify(xcb::cast_event(&event)),
                     xcb::CONFIGURE_REQUEST => self.on_configure_request(xcb::cast_event(&event)),
@@ -124,6 +136,7 @@ impl<'a> WM<'a> {
                     xcb::BUTTON_PRESS => self.on_button_press(xcb::cast_event(&event)),
                     xcb::BUTTON_RELEASE => self.on_button_release(xcb::cast_event(&event)),
                     xcb::KEY_PRESS => self.on_key_press(xcb::cast_event(&event)),
+                    xcb::CLIENT_MESSAGE => self.on_client_message(xcb::cast_event(&event)),
 
                     unhandled => debug!("unhandled event type: {}", unhandled),
                 }
@@ -308,7 +321,7 @@ impl<'a> WM<'a> {
         self.last_mouse_y = event.root_y() as i32;
 
         // Start grabbing pointer
-        self.conn.grab_pointer(self.screen.id(), helper::ROOT_POINTER_GRAB_MASK, false);
+        self.conn.grab_pointer(self.screen.id(), helper::ROOT_POINTER_GRAB_MASK);
 
         // If window id different to focused, focus it
         if !self.desktop.current().windows.is_focused(event.child()) {
@@ -369,6 +382,10 @@ impl<'a> WM<'a> {
                 return;
             }
         }
+    }
+
+    fn on_client_message(&mut self, event: &xcb::ClientMessageEvent) {
+        debug!("on_client_message: {} {}", event.window(), self.conn._get_atom_name(event.type_()));
     }
 
     pub fn kill(&mut self) {
