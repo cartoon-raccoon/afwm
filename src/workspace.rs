@@ -35,7 +35,6 @@ pub struct Workspace {
     _window_add:           fn(&mut Workspace, &XConn, &Screen, Window),
     _window_del:           fn(&mut Workspace, &XConn, &Screen, usize, xcb::Window) -> Window,
     _window_focus:         fn(&mut Workspace, &XConn, &Screen, xcb::Window),
-    _window_focus_idx:     fn(&mut Workspace, &XConn, &Screen, usize),
     _window_focus_cycle:   fn(&mut Workspace, &XConn, &Screen),
 }
 
@@ -50,7 +49,6 @@ impl Default for Workspace {
             _window_add: floating::window_add,
             _window_del: floating::window_del,
             _window_focus: floating::window_focus,
-            _window_focus_idx: floating::window_focus_idx,
             _window_focus_cycle: floating::window_focus_cycle,
         }
     }
@@ -66,7 +64,6 @@ impl Workspace {
                 self._window_add = floating::window_add;
                 self._window_del = floating::window_del;
                 self._window_focus = floating::window_focus;
-                self._window_focus_idx = floating::window_focus_idx;
                 self._window_focus_cycle = floating::window_focus_cycle;
             },
         }
@@ -111,11 +108,6 @@ impl Workspace {
     pub fn window_focus(&mut self, conn: &XConn, screen: &Screen, window_id: xcb::Window) {
         debug!("Focusing window in workspace: {}", window_id);
         (self._window_focus)(self, conn, screen, window_id);
-    }
-
-    pub fn window_focus_idx(&mut self, conn: &XConn, screen: &Screen, idx: usize) {
-        debug!("Focusing window at index in workspace: {}", idx);
-        (self._window_focus_idx)(self, conn, screen, idx);
     }
 
     pub fn window_focus_cycle(&mut self, conn: &XConn, screen: &Screen) {

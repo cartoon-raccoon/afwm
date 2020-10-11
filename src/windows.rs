@@ -100,6 +100,11 @@ impl Windows {
         return self.0.len() == 0;
     }
 
+    pub fn move_front(&mut self, idx: usize) {
+        // Only swap with front if window isn't already there
+        if idx != 0 { self.0.swap(0, idx); }
+    }
+
     pub fn index_of(&self, window_id: xcb::Window) -> Option<usize> {
         let mut idx: usize = 0;
         for w in self.0.iter() {

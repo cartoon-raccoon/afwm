@@ -64,8 +64,10 @@ pub fn window_del(ws: &mut Workspace, conn: &XConn, screen: &Screen, idx: usize,
     // Tell X to unmap the window
     conn.unmap_window(window_id);
 
-    // If we just deleted the previously focused, focus the next index 0
-    if idx == 0 { window_focus_idx(ws, conn, screen, 0); }
+    // If we just deleted the previously focused, try focus the next index 0
+    if idx == 0 {
+        if let Some(window) = ws.windows.get(0) { window_input_focus_set_ontop(conn, window.id()); }
+    }
 
     // Return the Window
     return window;
@@ -74,48 +76,11 @@ pub fn window_del(ws: &mut Workspace, conn: &XConn, screen: &Screen, idx: usize,
 pub fn window_focus(ws: &mut Workspace, conn: &XConn, screen: &Screen, window_id: xcb::Window) {
     // Focus window (if there!)
     if let Some(idx) = ws.windows.index_of(window_id) {
-        // Get window at idx
-        let window = *ws.windows.get(idx).unwrap();
+        // Internally, move to front
+        ws.windows.move_front(idx);
 
-        // Internally, remove old position and readd (to front)
-        ws.windows.remove(idx);
-        ws.windows.add(window);
-
-        // Disable event tracking before making changes
-        conn.change_window_attributes(window.id(), &helper::values_attributes_no_events());
-
-        // Set window ontop
-        conn.configure_window(window_id, &helper::values_configure_stack_above());
-
-        // Tell X to focus the window
-        conn.set_input_focus(window_id);
-
-        // Enable event tracking again
-        conn.change_window_attributes(window.id(), &helper::values_attributes_child_events());
-    }
-}
-
-pub fn window_focus_idx(ws: &mut Workspace, conn: &XConn, screen: &Screen, idx: usize) {
-    // Focus window (if there!)
-    if let Some(window) = ws.windows.get(idx) {
-        // Get actual Window (not just reference)
-        let window = *window;
-    
-        // Internally remove old position
-        ws.windows.remove(idx);
-        ws.windows.add(window);
-
-        // Disable event tracking before making changes
-        conn.change_window_attributes(window.id(), &helper::values_attributes_no_events());
-
-        // Set window ontop
-        conn.configure_window(window.id(), &helper::values_configure_stack_above());
-
-        // Tell X to focus the window
-        conn.set_input_focus(window.id());
-
-        // Enable event tracking again
-        conn.change_window_attributes(window.id(), &helper::values_attributes_child_events());
+        // Focus input + set ontop
+        window_input_focus_set_ontop(conn, window_id);
     }
 }
 
@@ -128,6 +93,26 @@ pub fn window_focus_cycle(ws: &mut Workspace, conn: &XConn, screen: &Screen) {
         return;
     }
 
-    // Focus last window
-    ws.window_focus_idx(conn, screen, len-1);
+    // Internally, move last window to front
+    ws.windows.move_front(len-1);
+
+    // Get window in question
+    let window = ws.windows.get(len-1).unwrap();
+
+    // Focus input + set ontop
+    window_input_focus_set_ontop(conn, window.id());
+}
+
+fn window_input_focus_set_ontop(conn: &XConn, window_id: xcb::Window) {
+    // Disable event tracking before making changes
+    conn.change_window_attributes(window_id, &helper::values_attributes_no_events());
+
+    // Set window ontop
+    conn.configure_window(window_id, &helper::values_configure_stack_above());
+
+    // Tell X to focus the window
+    conn.set_input_focus(window_id);
+
+    // Enable event tracking again
+    conn.change_window_attributes(window_id, &helper::values_attributes_child_events());
 }
