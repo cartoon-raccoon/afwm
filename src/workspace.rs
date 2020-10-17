@@ -1,7 +1,7 @@
 use crate::layout::{floating, LayoutType};
 use crate::screen::Screen;
 use crate::windows::{Window, Windows};
-use crate::x::{XConn, XWindow};
+use crate::x::{XConn, XWindowID};
 
 pub struct Workspace {
     // Internal window id tracking
@@ -33,8 +33,8 @@ pub struct Workspace {
     _activate:             fn(&mut Workspace, &XConn, &Screen),
     _deactivate:           fn(&mut Workspace, &XConn),
     _window_add:           fn(&mut Workspace, &XConn, &Screen, Window),
-    _window_del:           fn(&mut Workspace, &XConn, &Screen, usize, xcb::Window) -> Window,
-    _window_focus:         fn(&mut Workspace, &XConn, &Screen, xcb::Window),
+    _window_del:           fn(&mut Workspace, &XConn, &Screen, usize, XWindowID) -> Window,
+    _window_focus:         fn(&mut Workspace, &XConn, &Screen, XWindowID),
     _window_focus_cycle:   fn(&mut Workspace, &XConn, &Screen),
 }
 
@@ -82,11 +82,11 @@ impl Workspace {
     }
 
     pub fn window_add(&mut self, conn: &XConn, screen: &Screen, window: Window) {
-        debug!("Adding window to workspace: {}", window.id());
+        debug!("Adding window to workspace: {}", window.xwindow.id);
        (self._window_add)(self, conn, screen, window);
     }
 
-    pub fn window_del(&mut self, conn: &XConn, screen: &Screen, idx: usize, window_id: xcb::Window) -> Window {
+    pub fn window_del(&mut self, conn: &XConn, screen: &Screen, idx: usize, window_id: XWindowID) -> Window {
         debug!("Deleting window at index {} from workspace: {}", idx, window_id);
         return (self._window_del)(self, conn, screen, idx, window_id);
     }
@@ -94,10 +94,10 @@ impl Workspace {
     pub fn window_del_focused(&mut self, conn: &XConn, screen: &Screen) -> Option<Window> {
         if let Some(focused) = self.windows.focused() {
             // Take ownership
-            let focused = *focused;
+            let focused = focused.to_owned();
 
             // Remove from current workspace
-            self.window_del(conn, screen, 0, focused.id());
+            self.window_del(conn, screen, 0, focused.xwindow.id);
 
             // Return id of previously focused window
             return Some(focused);
@@ -105,7 +105,7 @@ impl Workspace {
         return None;
     }
 
-    pub fn window_focus(&mut self, conn: &XConn, screen: &Screen, window_id: xcb::Window) {
+    pub fn window_focus(&mut self, conn: &XConn, screen: &Screen, window_id: XWindowID) {
         debug!("Focusing window in workspace: {}", window_id);
         (self._window_focus)(self, conn, screen, window_id);
     }

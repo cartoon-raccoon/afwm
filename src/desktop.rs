@@ -1,7 +1,7 @@
 use crate::config::WORKSPACES;
 use crate::screen::Screen;
 use crate::workspace::Workspace;
-use crate::x::XConn;
+use crate::x::{XConn, XWindowID};
 
 #[derive(Default)]
 pub struct Desktop {
@@ -59,7 +59,7 @@ impl Desktop {
         return self.workspaces.get_mut(idx).unwrap();
     }
 
-    pub fn contains(&self, window_id: xcb::Window) -> Option<(&Workspace, usize)> {
+    pub fn contains(&self, window_id: XWindowID) -> Option<(&Workspace, usize)> {
         for ws in self.workspaces.iter() {
             if let Some(idx) = ws.windows.index_of(window_id) {
                 return Some((ws, idx));
@@ -68,7 +68,7 @@ impl Desktop {
         return None;
     }
 
-    pub fn contains_mut(&mut self, window_id: xcb::Window) -> Option<(&mut Workspace, usize)> {
+    pub fn contains_mut(&mut self, window_id: XWindowID) -> Option<(&mut Workspace, usize)> {
         for ws in self.workspaces.iter_mut() {
             if let Some(idx) = ws.windows.index_of(window_id) {
                 return Some((ws, idx));

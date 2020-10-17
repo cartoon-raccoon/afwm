@@ -1,6 +1,5 @@
 use crate::layout::LayoutType;
 use crate::wm::WM;
-use crate::x::XWindow;
 
 use std::process::Command;
 use std::thread;
@@ -78,7 +77,7 @@ pub const KEYBINDS: &[(xcb::ModMask, xcb::Keysym, fn(&mut WM))] = &[
 // If there is a currently focused window, send a kill client command via X
 fn close_focused_window(wm: &mut WM) {
     if let Some(focused) = wm.desktop.current_mut().windows.focused() {
-        wm.conn.destroy_window(focused.id());
+        wm.conn.destroy_window(focused);
     }
 }
 
