@@ -68,6 +68,7 @@ impl Window {
         // hashset of supported atoms
         if let Some(protocols) = conn.get_wm_protocols(self.xwindow.id) {
             for protocol in protocols {
+                debug!("{}", conn._get_atom_name(protocol));
                 self.protocols.insert(protocol);
             }
         }
