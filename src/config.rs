@@ -89,30 +89,25 @@ fn send_window_from_workspace_to(wm: &mut WM, idx: usize) {
     }
 }
 
-// Executes an argument array in a new thread waiting for exit status
+// Run an argument array in new thread, waiting for exit status
 fn run(args: &'static [&str]) {
     thread::spawn(move || {
-        execute(args);
+        // Log
+        debug!("Running command: {:?}", args);
+
+        // Create new Command object
+        let mut cmd = Command::new(args[0]);
+
+        // Set arguments
+        cmd.args(args.iter().skip(1));
+
+        // Execute!
+        match cmd.status() {
+            // Executed and returned exit status. Log returned status
+            Ok(status) => debug!("{:?}: exited with {}", args, status),
+
+            // Did not execute. Log returned error
+            Err(err) => warn!("{:?}: {}", args, err),
+        }
     });
-}
-
-// Execute an argument array as child
-fn execute(args: &[&str]) {
-    // Log
-    debug!("Running command: {:?}", args);
-
-    // Create new Command object
-    let mut cmd = Command::new(args[0]);
-
-    // Set arguments
-    cmd.args(args.iter().skip(1));
-
-    // Execute!
-    match cmd.status() {
-        // Executed and returned exit status. Log returned status
-        Ok(status) => debug!("{:?}: exited with {}", args, status),
-
-        // Did not execute. Log returned error
-        Err(err) => warn!("{:?}: {}", args, err),
-    }
 }
