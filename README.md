@@ -33,7 +33,6 @@ exec afwm
 
 # Building
 
-`./build` will build the release version for your current default target.
+Running `make` will build the release version for your current default target.
 
-Building the debug version will include _a lot_ of extra debug printing should
-you need it.
+Building the debug version will include _a lot_ of extra debug printing should you need it.
