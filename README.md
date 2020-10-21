@@ -9,7 +9,7 @@ Floating only (for now).
 
 Set your key binds in `src/config.rs`.
 
-Keepin' it simple. LOC count: `1040`
+Keepin' it simple. LOC count: `1032`
 
 Initially inpsired by Lanta (https://github.com/mjkillough/lanta) but very
 quickly became its own beast.
